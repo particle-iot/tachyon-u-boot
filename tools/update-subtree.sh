@@ -39,7 +39,7 @@ set_params() {
             ;;
         dts)
             path=dts/upstream
-            repo_url=https://git.kernel.org/pub/scm/linux/kernel/git/devicetree/devicetree-rebasing.git
+            repo_url=git@github.com:particle-iot-inc/tachyon-linux-qcom-devicetree-rebasing.git
             remote_name="devicetree-rebasing"
             ;;
         lwip)
@@ -70,12 +70,15 @@ remote_add_and_fetch() {
         echo "        $repo_url"
         git remote add $remote_name $repo_url
     fi
-    git fetch $remote_name master
+    git fetch $remote_name tachyon-noble
 }
 
 if [ "$op" = "pull" ]; then
     remote_add_and_fetch
     git subtree pull --prefix $path $remote_name "$ref" --squash -m "$merge_commit_msg"
+elif [ "$op" = "add" ]; then
+    remote_add_and_fetch
+    git subtree add --prefix $path $remote_name "$ref" --squash -m "$merge_commit_msg"
 elif [ "$op" = "pick" ]; then
     remote_add_and_fetch
     git cherry-pick -x --strategy=subtree -Xsubtree=$path/ "$ref"
