@@ -1,0 +1,132 @@
+version: 2.1
+
+orbs:
+  docker: circleci/docker@2
+  jq: circleci/jq@3
+  aws-cli: circleci/aws-cli@5
+
+workflows:
+  build:
+    jobs:
+      - build-u-boot:
+          context: particle-ci-private
+
+jobs:
+  build-u-boot:
+    machine:
+      image: ubuntu-2404:2024.11.1
+    resource_class: medium
+    steps:
+      - run:
+          name: Install dependencies
+          command: |
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gcc gcc-aarch64-linux-gnu bc bison build-essential coccinelle \
+              device-tree-compiler dfu-util efitools flex gdisk graphviz imagemagick \
+              libgnutls28-dev libguestfs-tools libncurses-dev \
+              libpython3-dev libsdl2-dev libssl-dev lz4 lzma lzma-alone openssl \
+              pkg-config python3 python3-asteval python3-coverage python3-filelock \
+              python3-pkg-resources python3-pycryptodome python3-pyelftools \
+              python3-pytest python3-pytest-xdist python3-sphinxcontrib.apidoc \
+              python3-sphinx-rtd-theme python3-subunit python3-testtools \
+              python3-venv swig uuid-dev xxd zip
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            touch ~/.ssh/known_hosts
+            chmod 600 ~/.ssh/known_hosts
+            ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+            echo "Installing GitHub CLI"
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            wget -O semver https://raw.githubusercontent.com/fsaintjacques/semver-tool/master/src/semver && chmod +x semver && sudo mv semver /usr/local/bin
+            sudo apt update
+            sudo apt install -y gh
+      - jq/install
+      - aws-cli/setup:
+          profile_name: default
+          region: us-east-1
+          role_arn: arn:aws:iam::713073884108:role/circleci-deploy-tachyon-ci
+          role_session_name: circleci
+      - docker/check:
+          docker-username: DOCKERHUB_USERNAME
+          docker-password: DOCKERHUB_PASSWORD
+      - checkout
+      - run:
+          name: Increment Version
+          command: |
+            set -x
+            CURRENT_VERSION=$(git log --simplify-by-decoration --pretty="format:%D" | { grep -E 'tag: v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)([^+-]|$)' || true; } | sed 's/.*tag: \([^,]*\).*/\1/' | head -n 1)
+            if [[ -z $CURRENT_VERSION ]]; then
+              echo "No version tags found, defaulting to 1.0.0"
+              CURRENT_VERSION="1.0.0"
+            fi
+
+            echo "Latest release tag: $CURRENT_VERSION"
+
+            NEW_VERSION=$(semver bump patch $CURRENT_VERSION)
+            echo "New version: $NEW_VERSION"
+
+            # Export for later use
+            echo "export LATEST_RELEASED_VERSION=$CURRENT_VERSION" >> $BASH_ENV
+            echo "export VERSION=$NEW_VERSION" >> $BASH_ENV
+      - run:
+          name: Build U-boot
+          command: |
+            export CROSS_COMPILE=aarch64-linux-gnu-
+            make qcm6490_tachyon_defconfig
+            make -j$(nproc)
+            zip artifacts.zip u-boot* System.map dts/dt.dtb .config
+      - run:
+          name: Push firmware artifact
+          command: |
+            S3_BUCKET=tachyon-ci-particle-io-20241217204603468000000002
+            CLOUDFRONT_URL=https://tachyon-ci.particle.io
+
+            BRANCH_NAME=$(git branch --show-current)
+            DEFAULT_BRANCH_NAME=tachyon
+            PRERELEASE_ARGS=""
+            ARTIFACT_BASE_PATH=release
+
+            RELEASE_TAG="$VERSION"
+            if [ "$BRANCH_NAME" != "$DEFAULT_BRANCH_NAME" ]; then
+              echo "On a non-default branch, marking as prerelease"
+              PRERELEASE_ARGS="--prerelease"
+              RELEASE_TAG="$LATEST_RELEASED_VERSION+build.$(git rev-parse --short HEAD)"
+              ARTIFACT_BASE_PATH=prerelease
+            fi
+
+            echo "export RELEASE_TAG=$RELEASE_TAG" >> $BASH_ENV
+
+            FIRMWARE_NAME="tachyon-u-boot-$RELEASE_TAG.zip"
+            ARTIFACT_PATH=$ARTIFACT_BASE_PATH/$FIRMWARE_NAME
+
+            aws s3 cp artifacts.zip s3://$S3_BUCKET/$ARTIFACT_PATH
+
+            ARTIFACT_URL=$CLOUDFRONT_URL/$(jq -nr --arg path "$ARTIFACT_PATH" '$path | @uri')
+            echo "export ARTIFACT_URL=$ARTIFACT_URL" >> $BASH_ENV
+      - when:
+          condition:
+            equal: ["tachyon", << pipeline.git.branch >>]
+          steps:
+            - run:
+                name: Create GitHub Release
+                command: |
+                  gh auth status
+                  gh release create $RELEASE_TAG --target $(git rev-parse HEAD) --generate-notes $PRERELEASE_ARGS --notes "[Download Firmware from CDN]($ARTIFACT_URL)"
+                  jq -n '{ artifact_url: env.ARTIFACT_URL }' > artifact_metadata.json
+                  gh release upload $RELEASE_TAG artifact_metadata.json
+      - when:
+          condition:
+            not:
+              equal: ["tachyon", << pipeline.git.branch >>]
+          steps:
+            - run:
+                name: Add PR comment with download link
+                command: |
+                  if [[ ! -z $CIRCLE_PULL_REQUEST ]]; then
+                    echo "Adding comment to PR $CIRCLE_PULL_REQUEST"
+                    gh pr comment $CIRCLE_PULL_REQUEST -b "Built $(git rev-parse --short HEAD): [Download Firmware]($ARTIFACT_URL)"
+                  else
+                    echo "No PR number found, skipping"
+                  fi
