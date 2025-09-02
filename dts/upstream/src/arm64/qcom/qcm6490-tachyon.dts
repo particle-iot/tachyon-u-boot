@@ -213,7 +213,65 @@
 			qcom,client-id = <1>;
 			qcom,vmid = <QCOM_SCM_VMID_MSS_MSA>, <QCOM_SCM_VMID_NAV>;
 		};
+
+		ipa_gsi@8b710000 {
+			reg = <0x00 0x8b710000 0x00 0xa000>;
+			no-map;
+		};
+
+		qrtr-shmem {
+			reg = <0x00 0xd7ef7000 0x00 0x9000>;
+			no-map;
+		};
+
+		dfps_data_memory: dfps@e3300000 {
+			reg = <0x00 0xe3300000 0x00 0x100000>;
+		};
+
+		neuron_block@1 {
+			reg = <0x00 0xd7f80000 0x00 0x80000>;
+			no-map;
+		};
+
+		pil_trustedvm_region@d0800000 {
+			reg = <0x00 0xd0800000 0x00 0x76f7000>;
+			no-map;
+		};
+
+		xbl_aop_mem@80700000 {
+			reg = <0x00 0x80700000 0x00 0x160000>;
+			no-map;
+		};
+
+		cdsp_secure_heap@81800000 {
+			reg = <0x00 0x81800000 0x00 0x1e00000>;
+			no-map;
+		};
+
+		video@8ad00000 {
+			reg = <0x00 0x8ad00000 0x00 0x500000>;
+			no-map;
+		};
+
+		removed_region@c0000000 {
+			reg = <0x00 0xc0000000 0x00 0x5100000>;
+			no-map;
+		};
+
+		neuron_block@0 {
+			reg = <0x00 0xd7f00000 0x00 0x80000>;
+			no-map;
+		};
+
+		camera@86200000 {
+			reg = <0x00 0x86200000 0x00 0x500000>;
+			no-map;
+		};
 	};
+};
+
+&reserved_xbl_uefi_log {
+	reg = <0x00 0x80880000 0x00 0x14000>;
 };
 
 // Disable WCN6750 wifi, we have a different one, added below
