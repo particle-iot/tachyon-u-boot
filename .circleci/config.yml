@@ -1,7 +1,6 @@
 version: 2.1
 
 orbs:
-  docker: circleci/docker@2
   jq: circleci/jq@3
   aws-cli: circleci/aws-cli@5
 
@@ -9,7 +8,7 @@ workflows:
   build:
     jobs:
       - build-u-boot:
-          context: particle-ci-private
+          context: linux-build-secrets
 
 jobs:
   build-u-boot:
@@ -46,11 +45,8 @@ jobs:
       - aws-cli/setup:
           profile_name: default
           region: us-east-1
-          role_arn: arn:aws:iam::713073884108:role/circleci-deploy-tachyon-ci
-          role_session_name: circleci
-      - docker/check:
-          docker-username: DOCKERHUB_USERNAME
-          docker-password: DOCKERHUB_PASSWORD
+          role_arn: "${TACHYON_CI_ROLE}"
+          role_session_name: "circleci-${CIRCLE_WORKFLOW_ID}"
       - checkout
       - run:
           name: Increment Version
@@ -80,8 +76,8 @@ jobs:
       - run:
           name: Push firmware artifact
           command: |
-            S3_BUCKET=tachyon-ci-particle-io-20241217204603468000000002
-            CLOUDFRONT_URL=https://tachyon-ci.particle.io
+            S3_BUCKET=${TACHYON_CI_BUCKET}
+            CLOUDFRONT_URL=https://linux-dist.particle.io
 
             BRANCH_NAME=$(git branch --show-current)
             DEFAULT_BRANCH_NAME=tachyon
