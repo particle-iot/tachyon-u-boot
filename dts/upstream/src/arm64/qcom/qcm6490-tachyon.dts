@@ -279,6 +279,10 @@
 	status = "disabled";
 };
 
+&{/smem} {
+	bootph-all;
+};
+
 &apps_rsc {
 	regulators-0 {
 		compatible = "qcom,pm7325-rpmh-regulators";
