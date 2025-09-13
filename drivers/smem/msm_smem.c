@@ -88,7 +88,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define SMEM_GLOBAL_HOST	0xfffe
 
 /* Max number of processors/hosts in a system */
-#define SMEM_HOST_COUNT		10
+#define SMEM_HOST_COUNT		20
 
 /**
  * struct smem_proc_comm - proc_comm communication struct (legacy)
@@ -337,7 +337,7 @@ static void *cached_entry_to_item(struct smem_private_entry *e)
 }
 
 /* Pointer to the one and only smem handle */
-static struct qcom_smem *__smem;
+static struct qcom_smem *__smem __section(".data") = NULL;
 
 static int qcom_smem_alloc_private(struct qcom_smem *smem,
 				   struct smem_partition_header *phdr,
@@ -911,7 +911,10 @@ static int qcom_smem_probe(struct udevice *dev)
 
 static int qcom_smem_remove(struct udevice *dev)
 {
-	__smem = NULL;
+	if (__smem) {
+		devm_kfree(dev, __smem);
+		__smem = NULL;
+	}
 
 	return 0;
 }

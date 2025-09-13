@@ -11,7 +11,7 @@ It's located in [dts/upstream/src/arm64/qcom/qcm6490-tachyon.dts](https://github
 
 ```console
 $ export CROSS_COMPILE=aarch64-linux-gnu-
-$ make qcm6490_tachyon_defconfig
+$ make qcm6490_tachyon_config
 $ make -j8
 ```
 

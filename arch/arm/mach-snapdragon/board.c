@@ -41,10 +41,27 @@ static struct mm_region rbx_mem_map[CONFIG_NR_DRAM_BANKS + 2] = { { 0 } };
 
 struct mm_region *mem_map = rbx_mem_map;
 
-static struct {
-	phys_addr_t start;
-	phys_size_t size;
-} prevbl_ddr_banks[CONFIG_NR_DRAM_BANKS] __section(".data") = { 0 };
+qcom_mem_bank prevbl_ddr_banks[CONFIG_NR_DRAM_BANKS] __section(".data") = { 0 };
+
+qcom_mem_bank* qcom_get_memory_banks(void) {
+	return prevbl_ddr_banks;
+}
+
+static int ddr_bank_cmp(const void *v1, const void *v2)
+{
+	const qcom_mem_bank *res1 = v1, *res2 = v2;
+
+	if (!res1->size)
+		return 1;
+	if (!res2->size)
+		return -1;
+
+	return (res1->start >> 24) - (res2->start >> 24);
+}
+
+void qcom_sort_memory_banks(qcom_mem_bank* banks, size_t size) {
+	qsort(banks, size, sizeof(banks[0]), ddr_bank_cmp);
+}
 
 int dram_init(void)
 {
@@ -53,21 +70,6 @@ int dram_init(void)
 	 * in qcom_parse_memory().
 	 */
 	return 0;
-}
-
-static int ddr_bank_cmp(const void *v1, const void *v2)
-{
-	const struct {
-		phys_addr_t start;
-		phys_size_t size;
-	} *res1 = v1, *res2 = v2;
-
-	if (!res1->size)
-		return 1;
-	if (!res2->size)
-		return -1;
-
-	return (res1->start >> 24) - (res2->start >> 24);
 }
 
 /* This has to be done post-relocation since gd->bd isn't preserved */
@@ -128,7 +130,7 @@ static void qcom_parse_memory(const void *fdt)
 	}
 
 	/* Sort our RAM banks -_- */
-	qsort(prevbl_ddr_banks, banks, sizeof(prevbl_ddr_banks[0]), ddr_bank_cmp);
+	qcom_sort_memory_banks(prevbl_ddr_banks, banks);
 
 	gd->ram_base = prevbl_ddr_banks[0].start;
 	gd->ram_size = ram_end - gd->ram_base;
