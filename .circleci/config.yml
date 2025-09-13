@@ -70,7 +70,7 @@ jobs:
           name: Build U-boot
           command: |
             export CROSS_COMPILE=aarch64-linux-gnu-
-            make qcm6490_tachyon_defconfig
+            make qcm6490_tachyon_config
             make -j$(nproc)
             zip artifacts.zip u-boot* System.map dts/dt.dtb .config
       - run:
