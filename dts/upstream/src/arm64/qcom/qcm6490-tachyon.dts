@@ -727,6 +727,9 @@
 	pinctrl-0 = <&pcie1_reset_n>, <&pcie1_wake_n>, <&pcie1_clkreq_n>, <&pcie1_pwr_en>;
 	pinctrl-names = "default";
 
+	vdda-supply = <&vreg_l6b_1p2>;
+	vddpe-3v3-supply = <&vreg_bob_3p296>;
+
 	iommu-map = <0x0 &apps_smmu 0x1c80 0x1>,
 		    <0x100 &apps_smmu 0x1c81 0x1>,
 		    <0x208 &apps_smmu 0x1c84 0x1>,
@@ -823,8 +826,8 @@
 	wlan_en_state: wlan-en-state {
 		pins = "gpio84";
 		function = "gpio";
-		output-high;
-		bias-pull-up;
+		output-low;
+		bias-pull-down;
 	};
 
 	// Should be no longer required, already in sc7280.dtsi
@@ -837,11 +840,9 @@
 	pcie0_reset_n: pcie0-reset-n-state {
 		pins = "gpio87";
 		function = "gpio";
-		// drive-strength = <16>;
-		// output-low;
-		// bias-disable;
-		drive-strength = <2>;
-		bias-pulldown;
+		drive-strength = <16>;
+		output-low;
+		bias-disable;
 	};
 
 	pcie0_wake_n: pcie0-wake-n-state {
@@ -1091,6 +1092,9 @@
 
 	pinctrl-0 = <&pcie0_reset_n>, <&pcie0_wake_n>, <&pcie0_clkreq_n>;
 	pinctrl-names = "default";
+
+	vdda-supply = <&vreg_l6b_1p2>;
+	vddpe-3v3-supply = <&vreg_bob_3p296>;
 
 	status = "okay";
 
