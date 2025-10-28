@@ -32,6 +32,9 @@
 		serial1 = &uart7;
 		serial2 = &uart8;
 		serial3 = &uart12;
+
+		wlan = &wlan;
+		bluetooth = &bluetooth;
 	};
 
 	chosen {
@@ -718,7 +721,7 @@
 };
 
 &remoteproc_mpss {
-	firmware-name = "tachyon/vendor/image/modem.mdt";
+	firmware-name = "tachyon/modem.mdt";
 	status = "okay";
 };
 
@@ -1040,7 +1043,7 @@
 
 	//pinctrl-1 = <&qup_uart7_sleep_cts>, <&qup_uart7_sleep_rts>, <&qup_uart7_sleep_tx>, <&qup_uart7_sleep_rx>;
 
-	bluetooth {
+	bluetooth: bluetooth {
 		compatible = "qcom,wcn6855-bt";
 
 		pinctrl-names = "default";
