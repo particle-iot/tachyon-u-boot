@@ -59,6 +59,19 @@
 		};
 	};
 
+	leds {
+		compatible = "gpio-leds";
+
+		activity_led: activity_led {
+			function = LED_FUNCTION_ACTIVITY;
+			linux,default-trigger = "activity";
+			gpios = <&tlmm 14 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+			status = "ok";
+			regulators = <&vreg_l7c_3p0>;
+		};
+	};
+
 	thermal-zones {
 		quiet-thermal {
 			polling-delay-passive = <0>;
@@ -494,6 +507,7 @@
 			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3544000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-always-on;
 		};
 
 		vreg_l8c_1p62: ldo8 {
