@@ -28,20 +28,20 @@
 		port@1 {
 			reg = <1>;
 			mdss_dsi0_out: endpoint {
-				remote-endpoint = <&panel_7inch_in>;
+				remote-endpoint = <&rpi_touch_v2_panel_in>;
 			};
 		};
 	};
 
-	rpi_7inch_panel: panel@0 {
+	rpi_touch_v2_panel: panel@0 {
 		reg = <0>;
 		compatible = "raspberrypi,dsi-7inch";
-		reset-gpio = <&panel_regulator 0 GPIO_ACTIVE_LOW>;
-		backlight = <&panel_regulator>;
+		reset-gpio = <&rpi_touch_v2_panel_regulator 0 GPIO_ACTIVE_LOW>;
+		backlight = <&rpi_touch_v2_panel_regulator>;
 		status = "okay";
 
 		port {
-			panel_7inch_in: endpoint {
+			rpi_touch_v2_panel_in: endpoint {
 				remote-endpoint = <&mdss_dsi0_out>;
 			};
 		};
@@ -49,10 +49,10 @@
 };
 
 &{/} {
-	touch_reg: touch_reg {
+	rpi_touch_v2_touch_reg: touch_reg {
 		compatible = "regulator-fixed";
 		regulator-name = "touch_reg_1";
-		gpio = <&panel_regulator 1 GPIO_ACTIVE_HIGH>;
+		gpio = <&rpi_touch_v2_panel_regulator 1 GPIO_ACTIVE_HIGH>;
 		startup-delay-us = <50000>;
 		enable-active-high;
 	};
@@ -65,17 +65,17 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	panel_regulator: regulator@45 {
+	rpi_touch_v2_panel_regulator: regulator@45 {
 		compatible = "raspberrypi,v2-touchscreen-panel-regulator";
 		reg = <0x45>;
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
 
-	gt911: gt911@5d {
+	rpi_touch_v2_ts: gt911@5d {
 		compatible = "goodix,gt911";
 		reg = <0x5d>;
-		AVDD28-supply = <&touch_reg>;
+		AVDD28-supply = <&rpi_touch_v2_touch_reg>;
 		touchscreen-size-x = <720>;
 		touchscreen-size-y = <1280>;
 		touchscreen-x-mm = <62>;
