@@ -37,9 +37,9 @@
 		serial2 = &uart8;  // 40 pin: 8,10,11,36
 		serial3 = &uart12; // Syscon
 
-		i2c0 = &i2c0;  // Audio Codec bus @980000
-		i2c1 = &i2c2;  // 40 pin: 3, 5  988000
-		i2c2 = &i2c10; // QWIIC 
+		i2c0 = &i2c0;  // Audio Codec bus
+		i2c1 = &i2c2;  // 40 pin: 3,5
+		i2c2 = &i2c10; // QWIIC
 
 		spi0 = &spi14; // 40 pin: 19,21,23,24,26 a98000
 
