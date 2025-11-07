@@ -176,8 +176,7 @@ int qcom_late_init(void)
 	return 0;
 }
 
-int ft_system_setup(void *fdt, struct bd_info *bd)
-{
+int tachyon_system_setup(void *fdt) {
 	CHECK(tachyon_setup_efs());
 
 	u8 mac[ARP_HLEN] = {};
@@ -209,6 +208,16 @@ int ft_system_setup(void *fdt, struct bd_info *bd)
 				printf("Bluetooth MAC fixed up in %s\n", path);
 			}
 		}
+	}
+
+	return 0;
+}
+
+int ft_system_setup(void *fdt, struct bd_info *bd)
+{
+	int ret = tachyon_system_setup(fdt);
+	if (ret < 0) {
+		printf("Failed to setup\n");
 	}
 
 	return 0;
