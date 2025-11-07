@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) 2025 Particle Industries, Inc. All rights reserved.
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+&mdss {
+	status = "okay";
+};
+
+&mdss_dsi_phy {
+	vdds-supply = <&vreg_l10c_0p88>;
+	status = "okay";
+};
+
+&mdss_dsi {
+	vdda-supply = <&vreg_l6b_1p2>;
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+			mdss_dsi0_out: endpoint {
+				remote-endpoint = <&panel_7inch_in>;
+			};
+		};
+	};
+
+	rpi_7inch_panel: panel@0 {
+		reg = <0>;
+		compatible = "raspberrypi,dsi-7inch";
+		reset-gpio = <&panel_regulator 0 GPIO_ACTIVE_LOW>;
+		backlight = <&panel_regulator>;
+		status = "okay";
+
+		port {
+			panel_7inch_in: endpoint {
+				remote-endpoint = <&mdss_dsi0_out>;
+			};
+		};
+	};
+};
+
+&{/} {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	touch_reg: touch_reg@1 {
+		reg = <1>;
+		compatible = "regulator-fixed";
+		regulator-name = "touch_reg_1";
+		gpio = <&panel_regulator 1 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <50000>;
+		enable-active-high;
+	};
+};
+
+&i2c13 {
+	status = "okay";
+    qcom,load-firmware;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	panel_regulator: regulator@45 {
+		compatible = "raspberrypi,v2-touchscreen-panel-regulator";
+		reg = <0x45>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	gt911: gt911@5d {
+		compatible = "goodix,gt911";
+		reg = <0x5d>;
+		AVDD28-supply = <&touch_reg>;
+		touchscreen-size-x = <720>;
+		touchscreen-size-y = <1280>;
+		touchscreen-x-mm = <62>;
+		touchscreen-y-mm = <110>;
+	};
+
+};

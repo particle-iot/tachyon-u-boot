@@ -72,7 +72,7 @@ jobs:
             export CROSS_COMPILE=aarch64-linux-gnu-
             make qcm6490_tachyon_config
             make -j$(nproc)
-            zip artifacts.zip u-boot* System.map dts/dt.dtb .config
+            zip -j artifacts.zip u-boot* System.map dts/dt.dtb .config $(find -name '*.dtbo')
       - run:
           name: Push firmware artifact
           command: |
