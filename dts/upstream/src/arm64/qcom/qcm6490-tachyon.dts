@@ -63,6 +63,7 @@
 		compatible = "gpio-leds";
 
 		activity_led: activity_led {
+			label = "activity_led";
 			function = LED_FUNCTION_ACTIVITY;
 			linux,default-trigger = "activity";
 			gpios = <&tlmm 14 GPIO_ACTIVE_HIGH>;
@@ -1316,6 +1317,13 @@
     qcom,load-firmware;
 };
 
+// CSI/DSI I2C Bus for touch controller
+&i2c13 {
+    status = "okay";
+    clock-frequency = <400000>;
+    qcom,load-firmware;
+};
+
 // Main UART via Syscon: TX/RX only
 &uart12 {
 	status = "okay";
@@ -1331,4 +1339,15 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&qup_spi14_data_clk>, <&qup_spi14_cs>, <&spi14_cs1_gpio_default>;
 	cs-gpios = <0>, <&tlmm 62 GPIO_ACTIVE_LOW>;
+
+	spidev@0{
+		compatible = "dhcom-board";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+	};
+	spidev@1{
+		compatible = "dhcom-board";
+		reg = <1>;
+		spi-max-frequency = <50000000>;
+	};
 };
