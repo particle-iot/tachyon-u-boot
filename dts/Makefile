@@ -26,6 +26,25 @@ else
 local_dtbos :=
 endif
 
+ifeq ($(CONFIG_OF_UPSTREAM),y)
+
+UPSTREAM_DIR := $(srctree)/$(dt_dir)
+
+default_dt := $(patsubst "%",%,$(CONFIG_DEFAULT_DEVICE_TREE))
+
+ovl_srcs := \
+  $(wildcard $(UPSTREAM_DIR)/$(default_dt)-*.dtso) \
+  $(wildcard $(UPSTREAM_DIR)/*/$(default_dt)-*.dtso)
+
+ovl_rel  := $(patsubst $(UPSTREAM_DIR)/%,%,$(ovl_srcs))
+OVL_DTBO := $(addprefix $(obj)/upstream/,$(ovl_rel:.dtso=.dtbo))
+
+$(obj)/upstream/%.dtbo: $(UPSTREAM_DIR)/%.dtso $(DTC) FORCE
+	@mkdir -p $(dir $@)
+	$(call if_changed_dep,dtco)
+
+endif
+
 ifneq ($(EXT_DTB),)
 DTB := $(EXT_DTB)
 else
@@ -75,7 +94,7 @@ obj-$(CONFIG_OF_EMBED) := dt.dtb.o
 endif
 
 # Target for U-Boot proper
-dtbs: $(obj)/dt.dtb
+dtbs: $(obj)/dt.dtb $(OVL_DTBO)
 	@:
 
 # Target for SPL/TPL

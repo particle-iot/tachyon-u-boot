@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
  * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2025 Particle Industries, Inc. All rights reserved.
  */
 
 /dts-v1/;
@@ -25,7 +26,10 @@
 
 / {
 	model = "Particle Tachyon";
-	compatible = "particle,tachyon", "qcom,qcm6490";
+	compatible = "particle,tachyon", "qcom,qcm6490", "qcom,yupik-iot", "qcom,yupik-iot-idp", "qcom,idp";
+	
+	qcom,board-id = <0x22 0x00>;
+	qcom,msm-id = <0x1f1 0x10000>;
 
 	aliases {
 		serial0 = &uart5;
@@ -181,7 +185,6 @@
 
 		#address-cells = <1>;
 		#size-cells = <0>;
-		//orientation-gpios = <&tlmm 140 GPIO_ACTIVE_HIGH>;
 
 		connector@0 {
 			compatible = "usb-c-connector";
@@ -214,7 +217,7 @@
 					reg = <2>;
 
 					pmic_glink_sbu: endpoint {
-						// remote-endpoint = <&fsa4480_sbu_mux>;
+						remote-endpoint = <&usb1_sbu_mux>;
 					};
 				};
 			};
@@ -871,6 +874,14 @@
 		bias-pull-up;
 	};
 
+	peri_5v_en_default: peri-5v-en-state {
+		pins = "gpio13";
+		function = "gpio";
+		drive-strength = <2>;
+		output-high;
+		bias-disable;
+	};
+
 	// USB
 	usb_phy_ps: usb_phy_ps {
 		usb3phy_portselect_default: usb3phy_portselect_default {
@@ -885,14 +896,6 @@
 				drive-strength = <2>;
 			};
 		};
-	};
-
-	peri_5v_en_default: peri-5v-en-state {
-		pins = "gpio13";
-		function = "gpio";
-		drive-strength = <2>;
-		output-high;
-		bias-disable;
 	};
 
 	dsi_csi_sw_en_default: dsi-csi-sw-en-state {
@@ -950,6 +953,22 @@
 		drive-strength = <2>;
 		output-high;
 		bias-disable;
+	};
+
+	usb1_sbu_default: usb1-sbu-state {
+		oe-n-pins {
+			pins = "gpio108";
+			function = "gpio";
+			bias-disable;
+			drive-strength = <16>;
+			output-low;
+		};
+		sel-pins {
+			pins = "gpio42";
+			function = "gpio";
+			bias-disable;
+			drive-strength = <16>;
+		};
 	};
 };
 
@@ -1118,7 +1137,7 @@
 /delete-node/ &usb_1_dwc3;
 
 &usb_1 {
-	reg = <0x0 0x0a600000 0x0 0x100000>;
+	reg = <0x0 0x0a600000 0x0 0x200000>;
 
 	interrupts-extended = <&intc GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>,
 			      <&intc GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH>,
@@ -1174,6 +1193,10 @@
 
 &usb_1_qmpphy_out {
 	remote-endpoint = <&pmic_glink_ss_in>;
+};
+
+&usb_1_qmpphy_dp_in {
+	remote-endpoint = <&mdss_dp_out>;
 };
 
 &usb_1_hsphy {
@@ -1349,5 +1372,35 @@
 		compatible = "dhcom-board";
 		reg = <1>;
 		spi-max-frequency = <50000000>;
+	};
+};
+
+&mdss {
+	status = "okay";
+};
+
+&mdss_dp {
+	status = "okay";
+};
+
+&mdss_dp_out {
+	data-lanes = <0 1>; // ?
+	remote-endpoint = <&usb_1_qmpphy_dp_in>;
+};
+
+&{/} {
+	usb1-sbu-mux {
+		compatible = "gpio-sbu-mux";
+		enable-gpios = <&tlmm 108 GPIO_ACTIVE_HIGH>;
+		select-gpios = <&tlmm 42 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb1_sbu_default>;
+		mode-switch;
+		orientation-switch;
+		port {
+			usb1_sbu_mux: endpoint {
+				remote-endpoint = <&pmic_glink_sbu>;
+			};
+		};
 	};
 };
