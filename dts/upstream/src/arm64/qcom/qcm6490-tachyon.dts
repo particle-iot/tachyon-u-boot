@@ -32,10 +32,16 @@
 	qcom,msm-id = <0x1f1 0x10000>;
 
 	aliases {
-		serial0 = &uart5;
-		serial1 = &uart7;
-		serial2 = &uart8;
-		serial3 = &uart12;
+		serial0 = &uart5;  // Debug
+		serial1 = &uart7;  // Bluetooth
+		serial2 = &uart8;  // 40 pin: 8,10,11,36
+		serial3 = &uart12; // Syscon
+
+		i2c0 = &i2c0;  // Audio Codec bus
+		i2c1 = &i2c2;  // 40 pin: 3,5
+		i2c2 = &i2c10; // QWIIC
+
+		spi0 = &spi14; // 40 pin: 19,21,23,24,26 a98000
 
 		wlan = &wlan;
 		bluetooth = &bluetooth;
