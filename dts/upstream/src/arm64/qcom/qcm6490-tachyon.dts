@@ -1302,7 +1302,7 @@
 };
 
 &gpu_zap_shader {
-	firmware-name = "tachyon/a660_zap.mbn";
+	firmware-name = "a660_zap.mdt";
 	status = "okay";
 };
 
