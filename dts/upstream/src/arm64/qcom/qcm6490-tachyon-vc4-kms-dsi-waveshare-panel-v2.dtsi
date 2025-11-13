@@ -53,6 +53,8 @@
 	status = "okay";
     qcom,load-firmware;
 
+    clock-frequency = <100000>;
+
 	#address-cells = <1>;
 	#size-cells = <0>;
 
