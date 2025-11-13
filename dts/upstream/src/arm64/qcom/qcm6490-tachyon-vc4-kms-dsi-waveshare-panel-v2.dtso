@@ -7,3 +7,7 @@
 /plugin/;
 
 #include "qcm6490-tachyon-vc4-kms-dsi-waveshare-panel-v2.dtsi"
+
+&waveshare_panel {
+    rotation = <90>;
+};
