@@ -33,9 +33,10 @@
 
 	aliases {
 		serial0 = &uart5;  // Debug
-		serial1 = &uart7;  // Bluetooth
-		serial2 = &uart8;  // 40 pin: 8,10,11,36
-		serial3 = &uart12; // Syscon
+		
+		hsuart0 = &uart7;  // Bluetooth
+		hsuart1 = &uart12; // Syscon
+		hsuart2 = &uart8;  // 40 pin: 8,10,11,36
 
 		i2c0 = &i2c0;  // Audio Codec bus
 		i2c1 = &i2c2;  // 40 pin: 3,5
