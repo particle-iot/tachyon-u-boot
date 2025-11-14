@@ -41,6 +41,8 @@
 *.ti-*
 # Build tree
 /build*
+# But allow build.sh script
+!build.sh
 
 #
 # Top-level generic files
