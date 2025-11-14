@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) 2025 Particle Industries, Inc. All rights reserved.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "qcm6490-tachyon-vc4-kms-dsi-waveshare-panel-v2.dtsi"
+
+&waveshare_panel {
+    rotation = <90>;
+};
