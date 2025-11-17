@@ -136,19 +136,73 @@ check_native_prerequisites() {
     section "CHECKING NATIVE BUILD PREREQUISITES"
 
     local missing_tools=()
+    local missing_packages=()
 
     # Essential build tools
-    for tool in make gcc python3 bison flex; do
+    for tool in make gcc python3 bison flex bc xxd; do
         if ! command -v "$tool" &> /dev/null; then
             missing_tools+=("$tool")
         fi
     done
 
     if [ ${#missing_tools[@]} -gt 0 ]; then
-        error "Missing required tools: ${missing_tools[*]}"
+        error "Missing required tools: ${missing_tools[*]}. Run: $0 --install-deps"
     fi
 
     info "✓ Essential build tools found"
+
+    # Check for required header files by trying to compile a test
+    local temp_test_file="/tmp/uboot_prereq_test_$$.c"
+
+    # Test for OpenSSL headers
+    cat > "$temp_test_file" << 'EOF'
+#include <openssl/evp.h>
+#include <openssl/ssl.h>
+int main() { return 0; }
+EOF
+
+    if ! gcc -o /dev/null "$temp_test_file" 2>/dev/null; then
+        missing_packages+=("libssl-dev")
+    fi
+    rm -f "$temp_test_file"
+
+    # Test for gnutls headers
+    cat > "$temp_test_file" << 'EOF'
+#include <gnutls/gnutls.h>
+int main() { return 0; }
+EOF
+
+    if ! gcc -o /dev/null "$temp_test_file" 2>/dev/null; then
+        missing_packages+=("libgnutls28-dev")
+    fi
+    rm -f "$temp_test_file"
+
+    # Check for device tree compiler
+    if ! command -v dtc &> /dev/null; then
+        missing_packages+=("device-tree-compiler")
+    fi
+
+    # Check for python packages
+    if ! python3 -c "import elftools" 2>/dev/null; then
+        missing_packages+=("python3-pyelftools")
+    fi
+
+    if [ ${#missing_packages[@]} -gt 0 ]; then
+        echo ""
+        echo -e "${RED}ERROR: Missing required packages: ${missing_packages[*]}${NC}" >&2
+        echo ""
+        echo "To install missing dependencies, run ONE of:"
+        echo ""
+        echo "  1. Auto-install with this script:"
+        echo "     sudo $0 --install-deps"
+        echo ""
+        echo "  2. Manual install (Ubuntu/Debian):"
+        echo "     sudo apt-get install ${missing_packages[*]}"
+        echo ""
+        exit 1
+    fi
+
+    info "✓ Required development libraries found"
 
     # Check for cross-compiler if CROSS_COMPILE is set
     if [ -n "${CROSS_COMPILE:-}" ]; then
@@ -159,13 +213,6 @@ check_native_prerequisites() {
     else
         warn "CROSS_COMPILE not set - attempting native build"
         warn "For ARM64 target, you may need to set CROSS_COMPILE=aarch64-linux-gnu-"
-    fi
-
-    # Check for device tree compiler
-    if ! command -v dtc &> /dev/null; then
-        warn "Device tree compiler (dtc) not found - may be needed"
-    else
-        info "✓ Device tree compiler found"
     fi
 
     info "✓ Prerequisites check complete"
