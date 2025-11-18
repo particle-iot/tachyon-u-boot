@@ -10,19 +10,21 @@
 #define PM7250B_SID 8
 #define PM7250B_SID1 9
 
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/iio/qcom,spmi-adc7-pm7325.h>
 #include <dt-bindings/iio/qcom,spmi-adc7-pmk8350.h>
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/soc/qcom,apr.h>
+#include <dt-bindings/sound/qcom,q6afe.h>
 #include "sc7280.dtsi"
+/* NOT including qcm6490.dtsi - it uses GPR, we need APR */
 #include "pm7250b.dtsi"
 #include "pm7325.dtsi"
 #include "pm8350c.dtsi"
 #include "pmk8350.dtsi"
-
-/delete-node/ &rmtfs_mem;
 
 / {
 	model = "Particle Tachyon";
@@ -128,6 +130,14 @@
 		};
 	};
 
+	/* Fixed 12MHz clock for ES8388 codec MCLK */
+	codec_mclk: codec-mclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12288000>;  /* 12.288MHz for audio */
+		clock-output-names = "codec-mclk";
+	};
+
 	wcn6855-pmu {
 		compatible = "qcom,wcn6855-pmu";
 
@@ -231,15 +241,51 @@
 		};
 	};
 
-	reserved-memory {
-		// This has to match what the modem is expecting
-		rmtfs_mem: rmtfs@fc200000 {
-			compatible = "qcom,rmtfs-mem";
-			reg = <0x0 0xfc200000 0x0 0x280000>;
-			no-map;
-			qcom,client-id = <1>;
-			qcom,vmid = <QCOM_SCM_VMID_MSS_MSA>, <QCOM_SCM_VMID_NAV>;
+	/*
+	 * Q6 DSP Audio Card
+	 * Uses Q6 AFE (APR framework) via ADSP
+	 * ES8388 codec on I2C0 for analog audio output
+	 * Using qcom,apq8096-sndcard for proper Q6 integration
+	 */
+	sound {
+		compatible = "qcom,apq8096-sndcard";
+		model = "tachyon-audio";
+
+		audio-routing =
+			"Headphones", "LOUT1",
+			"Headphones", "ROUT1",
+			"Speakers", "LOUT2",
+			"Speakers", "ROUT2",
+			"LINPUT1", "Mic Jack",
+			"RINPUT1", "Mic Jack";
+
+		/* Frontend DAI Link - ALSA PCM device */
+		mm1-dai-link {
+			link-name = "MultiMedia1";
+			cpu {
+				sound-dai = <&q6asmdai 0>;  /* MULTIMEDIA1 */
+			};
 		};
+
+		/* Backend DAI Link - connects AFE to codec */
+		primary-mi2s-dai-link {
+			link-name = "Primary MI2S";
+			cpu {
+				sound-dai = <&q6afedai 16>;  /* PRIMARY_MI2S_RX = 16 */
+			};
+
+			platform {
+				sound-dai = <&q6routing>;
+			};
+
+			codec {
+				sound-dai = <&es8388>;
+			};
+		};
+	};
+
+	reserved-memory {
+		/* Using sc7280.dtsi default rmtfs_mem - not redefining */
 
 		ipa_gsi@8b710000 {
 			reg = <0x00 0x8b710000 0x00 0xa000>;
@@ -759,7 +805,18 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&header_40pin_gpio_default>, <&peri_5v_en_default>,
        <&dsi_csi_sw_en_default>, <&dsi_csi_sw_sel_default>, <&syscon_rgb_reserved_default>,
-	   <&syscon_bls_invoke_ctrl_default>, <&syscon_reset_ctrl_default>, <&level_shifter_en_default>;
+	   <&syscon_bls_invoke_ctrl_default>, <&syscon_reset_ctrl_default>, <&level_shifter_en_default>,
+	   <&codec_power_en_default>;
+
+	/* ES8388 codec power enable - BOTH GPIO 16 and 17 must be HIGH for I2C communication
+	 * Discovered by comparing GPIO states between working (20.04) and non-working (24.04) systems */
+	codec_power_en_default: codec-power-en-default-state {
+		pins = "gpio16", "gpio17";
+		function = "gpio";
+		output-high;
+		drive-strength = <2>;
+		bias-disable;
+	};
 
 	bt_en_state_default: bt-en-default-state {
 		pins = "gpio85";
@@ -960,6 +1017,18 @@
 		drive-strength = <2>;
 		output-high;
 		bias-disable;
+	};
+
+	/* ES8388 codec GPIOs
+	 * Note: GPIO 17 power enable is configured in codec_power_en_default hog */
+	es8388_default: es8388-default-state {
+		jack-det-pins {
+			pins = "gpio39";
+			function = "gpio";
+			drive-strength = <16>;
+			bias-pull-up;
+			input-enable;
+		};
 	};
 
 	usb1_sbu_default: usb1-sbu-state {
@@ -1298,9 +1367,93 @@
 };
 
 
-// ?
-&lpasscc {
+/* Configure ADSP with APR for audio */
+&remoteproc_adsp {
 	status = "okay";
+	firmware-name = "tachyon/adsp.mdt";
+
+	glink-edge {
+		apr {
+			compatible = "qcom,apr-v2";
+			qcom,glink-channels = "apr_audio_svc";
+			qcom,apr-domain = <APR_DOMAIN_ADSP>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			q6core: service@3 {
+				compatible = "qcom,q6core";
+				reg = <APR_SVC_ADSP_CORE>;
+			};
+
+			q6afe: service@4 {
+				compatible = "qcom,q6afe";
+				reg = <APR_SVC_AFE>;
+
+				q6afecc: clock-controller {
+					compatible = "qcom,q6afe-clocks";
+					#clock-cells = <1>;
+				};
+
+				q6afedai: dais {
+					compatible = "qcom,q6afe-dais";
+					#sound-dai-cells = <1>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					/* PRIMARY_MI2S_RX (port 16) pinctrl configuration */
+					dai@16 {
+						reg = <16>;  /* PRIMARY_MI2S_RX */
+						qcom,sd-lines = <0>;  /* SD0 line for stereo output */
+						pinctrl-names = "default";
+						pinctrl-0 = <&mi2s0_mclk &mi2s0_sclk &mi2s0_ws &mi2s0_data0>;
+					};
+				};
+			};
+
+			q6asm: service@7 {
+				compatible = "qcom,q6asm";
+				reg = <APR_SVC_ASM>;
+				q6asmdai: dais {
+					compatible = "qcom,q6asm-dais";
+					#sound-dai-cells = <1>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					iommus = <&apps_smmu 0x1821 0x0>;
+
+					/* Define multimedia streams for q6asm-dai */
+					dai@0 {
+						reg = <0>;  /* MULTIMEDIA1 */
+					};
+					dai@1 {
+						reg = <1>;  /* MULTIMEDIA2 */
+					};
+					dai@2 {
+						reg = <2>;  /* MULTIMEDIA3 */
+					};
+					dai@3 {
+						reg = <3>;  /* MULTIMEDIA4 */
+					};
+				};
+			};
+
+			q6adm: service@8 {
+				compatible = "qcom,q6adm";
+				reg = <APR_SVC_ADM>;
+				q6routing: routing {
+					compatible = "qcom,q6adm-routing";
+					#sound-dai-cells = <0>;
+				};
+			};
+		};
+	};
+};
+
+/*
+ * Disable hardware LPASS clock controller
+ * Q6 AFE provides clocks instead
+ */
+&lpasscc {
+	status = "disabled";
 };
 
 
@@ -1318,6 +1471,38 @@
     status = "okay";
     clock-frequency = <400000>;
     qcom,load-firmware;
+
+    es8388: codec@10 {
+        compatible = "everest,es8388";
+        reg = <0x10>;
+        #sound-dai-cells = <0>;
+
+        /* Provide a fixed 12MHz clock for MCLK */
+        clocks = <&codec_mclk>;
+
+        /* Power supplies - using mainline driver naming convention
+         * DVDD: Digital core supply (1.8V)
+         * AVDD: Analog supply (3.3V)
+         * PVDD: Digital IO supply (can use same as DVDD)
+         * HPVDD: Headphone output supply (3.3V)
+         */
+        DVDD-supply = <&vreg_l19b_1p8>;
+        AVDD-supply = <&vreg_bob_3p296>;
+        PVDD-supply = <&vreg_l19b_1p8>;
+        HPVDD-supply = <&vreg_bob_3p296>;
+
+        /* GPIO for jack detection */
+        jack-det-gpio = <&tlmm 39 GPIO_ACTIVE_HIGH>;
+
+        /* GPIO for headphone/mic bias control */
+        hp-mic-bias-gpio = <&tlmm 45 GPIO_ACTIVE_HIGH>;
+
+        /* Mic threshold for jack type detection (1.2V) */
+        mic-threshold-microvolt = <1200000>;
+
+        pinctrl-names = "default";
+        pinctrl-0 = <&es8388_default>;
+    };
 };
 
 // 40Pin Header, Pin3/5
