@@ -138,6 +138,12 @@
 		clock-output-names = "codec-mclk";
 	};
 
+	/* Audio CMA memory device - initializes reserved memory for audio DMA */
+	msm_audio_mem_cma: msm-audio-mem-cma {
+		compatible = "qcom,msm-audio-mem";
+		memory-region = <&audio_cma_mem>;
+	};
+
 	wcn6855-pmu {
 		compatible = "qcom,wcn6855-pmu";
 
@@ -286,6 +292,15 @@
 
 	reserved-memory {
 		/* Using sc7280.dtsi default rmtfs_mem - not redefining */
+
+		/* Audio DMA memory pool for Q6 ASM */
+		audio_cma_mem: qcom,audio-ml {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>; /* 16M */
+		};
 
 		ipa_gsi@8b710000 {
 			reg = <0x00 0x8b710000 0x00 0xa000>;
@@ -1418,7 +1433,7 @@
 					#sound-dai-cells = <1>;
 					#address-cells = <1>;
 					#size-cells = <0>;
-					iommus = <&apps_smmu 0x1821 0x0>;
+					memory-region = <&audio_cma_mem>;
 
 					/* Define multimedia streams for q6asm-dai */
 					dai@0 {
