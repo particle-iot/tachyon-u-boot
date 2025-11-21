@@ -21,6 +21,8 @@
 #include <memalign.h>
 #include <net-common.h>
 #include <fs.h>
+#include <power/pmic.h>
+#include <dm/ofnode.h>
 
 #include "efs.h"
 
@@ -48,6 +50,9 @@ typedef struct fs_context {
 #define TACHYON_USERDATA_OVERLAYS_PATH "/boot"
 #define TACHYON_USERDATA_OVERLAYS_FILE "overlays.txt"
 #define TACHYON_OVERLAYS_PREFIX "overlays="
+
+#define TACHYON_OS_TYPE_DT_NODE "sdam-os-type"
+#define TACHYON_OS_TYPE_HLOS (0x01)
 
 // #define DEBUG
 
@@ -316,6 +321,37 @@ int tachyon_load_overlays(void* fdt) {
 	return ret;
 }
 
+int tachyon_pmic_configure(void) {
+	struct udevice* dev = NULL;
+
+	uclass_foreach_dev_probe(UCLASS_PMIC, dev) {
+		ofnode node, subnode;
+
+		ofnode_for_each_subnode(node, dev_ofnode(dev)) {
+			ofnode_for_each_subnode(subnode, node) {
+				const char* name = ofnode_get_name(subnode);
+				if (name && !strncmp(name, TACHYON_OS_TYPE_DT_NODE, strlen(TACHYON_OS_TYPE_DT_NODE))) {
+					u32 sdam_base_reg = 0;
+					u32 sdam_reg[2] = {};
+
+					CHECK(ofnode_read_u32(node, "reg", &sdam_base_reg));
+					CHECK(ofnode_read_u32_array(subnode, "reg", sdam_reg, sizeof(sdam_reg) / sizeof(sdam_reg[0])));
+
+					uint reg = sdam_base_reg + sdam_reg[0];
+
+					u32 value = CHECK(pmic_reg_read(dev, reg));
+					value |= TACHYON_OS_TYPE_HLOS;
+					CHECK(pmic_reg_write(dev, reg, value));
+					printf("Set OS type to HLOS in reg 0x%04x\n", reg);
+
+					return 0;
+				}
+			}
+		}
+	}
+	return -ENOENT;
+}
+
 int tachyon_system_setup(void *fdt) {
 	CHECK(tachyon_setup_efs());
 
@@ -348,6 +384,11 @@ int tachyon_system_setup(void *fdt) {
 				printf("Bluetooth MAC fixed up in %s\n", path);
 			}
 		}
+	}
+
+	int r = tachyon_pmic_configure();
+	if (r < 0) {
+		printf("Failed to configure PMIC: %d\n", r);
 	}
 
 	return 0;

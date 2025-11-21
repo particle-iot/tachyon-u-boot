@@ -968,7 +968,7 @@
 			function = "gpio";
 			bias-disable;
 			drive-strength = <16>;
-			output-low;
+			output-high;
 		};
 		sel-pins {
 			pins = "gpio42";
@@ -1393,6 +1393,21 @@
 &mdss_dp_out {
 	data-lanes = <0 1>; // ?
 	remote-endpoint = <&usb_1_qmpphy_dp_in>;
+};
+
+&pmk8350 {
+	pmk8350_sdam_16: nvram@7f00 {
+		compatible = "qcom,spmi-sdam";
+		reg = <0x7f00>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0x7f00 0x100>;
+
+		sdam_os_type: sdam-os-type@5e {
+			reg = <0x5e 0x1>;
+			bits = <0 1>;
+		};
+	};
 };
 
 &{/} {
