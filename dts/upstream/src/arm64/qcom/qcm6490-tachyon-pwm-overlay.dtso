@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) 2025 Particle Industries, Inc. All rights reserved.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+&{/} {
+    pwm-gpio-78 {
+        #pwm-cells = <3>;
+        compatible = "pwm-gpio";
+        gpios = <&tlmm 78 GPIO_ACTIVE_HIGH>;
+    };
+
+    // GPIO141 = Pin 18 on CSI1 header
+    // Enable output via GPIO 47:
+    //     gpioset 4 47=1
+    pwm-gpio-141 {
+        #pwm-cells = <3>;
+        compatible = "pwm-gpio";
+        gpios = <&tlmm 141 GPIO_ACTIVE_HIGH>;
+    };
+
+    // GPIO54 = Pin 18 on DSI/CSI2 header
+    // Enable output via GPIO 55:
+    //     gpioset 4 55=1
+    pwm-gpio-54 {
+        #pwm-cells = <3>;
+        compatible = "pwm-gpio";
+        gpios = <&tlmm 54 GPIO_ACTIVE_HIGH>;
+    };
+};
