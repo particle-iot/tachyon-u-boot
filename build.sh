@@ -530,7 +530,10 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            error "Unknown option: $1. Use --help for usage."
+            echo -e "${RED}ERROR: Unknown option: $1${NC}" >&2
+            echo ""
+            show_help
+            exit 1
             ;;
     esac
 done

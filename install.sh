@@ -1,18 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
-# install.sh - Install pre-built u-boot.bin on tachyon device
+# install.sh - Install pre-built u-boot-dtb.bin on tachyon device
 # This script reads xbl partitions, patches them with u-boot, signs them, and writes them back
 # Supports both local (on-device) and remote (via ADB) installation
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Use u-boot-dtb.bin (with device tree) if available, otherwise fallback to u-boot.bin
-if [ -f "${SCRIPT_DIR}/u-boot-dtb.bin" ]; then
-    UBOOT_BIN="${SCRIPT_DIR}/u-boot-dtb.bin"
-else
-    UBOOT_BIN="${SCRIPT_DIR}/u-boot.bin"
-fi
+# IMPORTANT: Only use u-boot-dtb.bin (with embedded device tree)
+# Never fall back to u-boot.bin as it lacks the device tree and will cause hardware issues
+UBOOT_BIN="${SCRIPT_DIR}/u-boot-dtb.bin"
 QTOOLS_DIR="${QTOOLS_DIR:-/tmp/qtoolsign}"
+QTOOLS_CLONE_URL="https://github.com/msm8916-mainline/qtestsign.git"
+QTOOLS_REF="main"
 WORK_DIR="/tmp/tachyon-uboot-install-$$"
 
 # Installation mode: "device" or "adb"
@@ -46,7 +45,10 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            error "Unknown argument: $1. Run '$0 help' for usage."
+            echo -e "${RED}ERROR: Unknown argument: $1${NC}" >&2
+            echo ""
+            show_help
+            exit 1
             ;;
     esac
 done
@@ -150,7 +152,7 @@ Commands:
     check           Verify the system is a tachyon device and check prerequisites
     mount           Mount xbl partitions (if they have a filesystem)
     unmount         Unmount xbl partitions
-    install         Install u-boot.bin to xbl partitions (default action)
+    install         Install u-boot-dtb.bin to xbl partitions (default action)
 
 Environment Variables:
     QTOOLS_DIR      Path to qtestsign tools on device (default: /tmp/qtoolsign)
@@ -160,12 +162,26 @@ Examples:
     # Local installation (on device)
     sudo $0 --device check          # Check if system is ready
     sudo $0 --device unmount        # Unmount xbl partitions if mounted
-    sudo $0 --device install        # Install u-boot.bin to device
+    sudo $0 --device install        # Install u-boot-dtb.bin to device
 
     # Remote installation (via ADB from host)
     $0 --adb check                  # Check device via ADB
     $0 --adb --serial 449730e9 install  # Install via ADB to specific device
     ADB_SERIAL=449730e9 $0 --adb install  # Install via ADB using env var
+
+Troubleshooting:
+    # If device has no internet connection (needed for qtoolsign download):
+    1. Connect via ADB shell:
+       adb shell
+
+    2. Connect to WiFi network:
+       nmcli dev wifi connect <network-name> password <password>
+
+    3. Verify connectivity:
+       ping -c 3 8.8.8.8
+
+    # If pip3 is not installed:
+    adb shell 'sudo apt-get update && sudo apt-get install -y python3-pip'
 
 EOF
     exit 0
@@ -239,37 +255,39 @@ verify_tachyon_device() {
 }
 
 check_prerequisites() {
-    # Check if u-boot.bin exists (only for install command)
+    # Check if u-boot-dtb.bin exists (only for install command)
     if [ "$COMMAND" = "install" ]; then
         if [ ! -f "$UBOOT_BIN" ]; then
-            error "u-boot.bin not found at: $UBOOT_BIN"
+            error "u-boot-dtb.bin not found at: $UBOOT_BIN"
         fi
         UBOOT_SIZE=$(stat -c%s "$UBOOT_BIN" 2>/dev/null || stat -f%z "$UBOOT_BIN" 2>/dev/null)
-        info "✓ Found u-boot.bin ($UBOOT_SIZE bytes)"
+        info "✓ Found u-boot-dtb.bin ($UBOOT_SIZE bytes)"
     fi
 
     # Check for qtestsign tools (only for install command)
     if [ "$COMMAND" = "install" ]; then
-        if [ "$INSTALL_MODE" = "device" ]; then
-            if [ ! -f "$QTOOLS_DIR/patchxbl.py" ]; then
-                error "Missing $QTOOLS_DIR/patchxbl.py - qtestsign tools not installed"
-            fi
+        local qtools_missing=false
 
-            if [ ! -f "$QTOOLS_DIR/qtestsign.py" ]; then
-                error "Missing $QTOOLS_DIR/qtestsign.py - qtestsign tools not installed"
+        if [ "$INSTALL_MODE" = "device" ]; then
+            if [ ! -f "$QTOOLS_DIR/patchxbl.py" ] || [ ! -f "$QTOOLS_DIR/qtestsign.py" ]; then
+                qtools_missing=true
             fi
         else
-            # Check on device via ADB
-            if ! run_on_device test -f "$QTOOLS_DIR/patchxbl.py"; then
-                error "Missing $QTOOLS_DIR/patchxbl.py on device - qtestsign tools not installed"
-            fi
-
-            if ! run_on_device test -f "$QTOOLS_DIR/qtestsign.py"; then
-                error "Missing $QTOOLS_DIR/qtestsign.py on device - qtestsign tools not installed"
+            # Check on device via ADB - need to check files explicitly
+            if ! run_on_device "test -f '$QTOOLS_DIR/patchxbl.py'"; then
+                qtools_missing=true
+            elif ! run_on_device "test -f '$QTOOLS_DIR/qtestsign.py'"; then
+                qtools_missing=true
             fi
         fi
 
-        info "✓ Found qtestsign tools at $QTOOLS_DIR"
+        if [ "$qtools_missing" = true ]; then
+            warn "qtoolsign tools not found at $QTOOLS_DIR"
+            info "Will automatically download and install qtoolsign tools..."
+            install_qtoolsign
+        else
+            info "✓ Found qtestsign tools at $QTOOLS_DIR"
+        fi
     fi
 
     # Check for required commands on device
@@ -310,6 +328,88 @@ check_mount_status() {
         fi
     fi
     return 1  # not mounted
+}
+
+# Check if device has internet connectivity
+check_internet_connectivity() {
+    info "Checking device internet connectivity..."
+
+    if [ "$INSTALL_MODE" = "device" ]; then
+        if ! ping -c 1 -W 2 8.8.8.8 &>/dev/null; then
+            error "Device has no internet connectivity - cannot download qtoolsign"
+        fi
+    else
+        if ! run_on_device "ping -c 1 -W 2 8.8.8.8" &>/dev/null; then
+            error "Device has no internet connectivity - cannot download qtoolsign"
+        fi
+    fi
+
+    info "✓ Device has internet connectivity"
+}
+
+# Install qtoolsign tools on device automatically
+install_qtoolsign() {
+    section "AUTO-INSTALLING QTOOLSIGN TOOLS"
+
+    check_internet_connectivity
+
+    # Check if git is installed
+    info "Checking for required tools (git, pip3)..."
+    if [ "$INSTALL_MODE" = "device" ]; then
+        if ! command -v git &>/dev/null; then
+            error "git not found - please install git first: sudo apt-get install -y git"
+        fi
+        if ! command -v pip3 &>/dev/null; then
+            error "pip3 not found - please install python3-pip first: sudo apt-get install -y python3-pip"
+        fi
+    else
+        if ! run_on_device which git &>/dev/null; then
+            error "git not found on device - please install: adb shell 'sudo apt-get install -y git'"
+        fi
+        if ! run_on_device which pip3 &>/dev/null; then
+            error "pip3 not found on device - please install: adb shell 'sudo apt-get install -y python3-pip'"
+        fi
+    fi
+    info "✓ Required tools available"
+
+    # Clone qtoolsign
+    info "Cloning qtoolsign from $QTOOLS_CLONE_URL ..."
+    if [ "$INSTALL_MODE" = "device" ]; then
+        rm -rf "$QTOOLS_DIR"
+        git clone --depth 1 "$QTOOLS_CLONE_URL" "$QTOOLS_DIR" || error "Failed to clone qtoolsign"
+        cd "$QTOOLS_DIR" && git checkout "$QTOOLS_REF" && cd -
+    else
+        run_on_device_sudo rm -rf "$QTOOLS_DIR"
+        run_on_device "git clone --depth 1 '$QTOOLS_CLONE_URL' '$QTOOLS_DIR'" || error "Failed to clone qtoolsign"
+        run_on_device "cd '$QTOOLS_DIR' && git checkout '$QTOOLS_REF'"
+    fi
+    info "✓ Cloned qtoolsign to $QTOOLS_DIR"
+
+    # Install Python dependencies
+    info "Installing Python dependencies from requirements.txt..."
+    if [ "$INSTALL_MODE" = "device" ]; then
+        pip3 install --user --no-cache-dir -r "$QTOOLS_DIR/requirements.txt" || \
+            sudo pip3 install --break-system-packages --no-cache-dir -r "$QTOOLS_DIR/requirements.txt" || \
+            error "Failed to install qtoolsign dependencies"
+    else
+        run_on_device "pip3 install --user --no-cache-dir -r '$QTOOLS_DIR/requirements.txt'" || \
+            run_on_device_sudo "pip3 install --break-system-packages --no-cache-dir -r '$QTOOLS_DIR/requirements.txt'" || \
+            error "Failed to install qtoolsign dependencies"
+    fi
+    info "✓ Installed Python dependencies"
+
+    # Verify installation
+    if [ "$INSTALL_MODE" = "device" ]; then
+        if [ ! -f "$QTOOLS_DIR/patchxbl.py" ] || [ ! -f "$QTOOLS_DIR/qtestsign.py" ]; then
+            error "qtoolsign installation incomplete - missing scripts"
+        fi
+    else
+        if ! run_on_device test -f "$QTOOLS_DIR/patchxbl.py" || ! run_on_device test -f "$QTOOLS_DIR/qtestsign.py"; then
+            error "qtoolsign installation incomplete - missing scripts"
+        fi
+    fi
+
+    info "✓ qtoolsign tools installed successfully at $QTOOLS_DIR"
 }
 
 # Command: check
@@ -354,9 +454,9 @@ cmd_check() {
 
     if [ -f "$UBOOT_BIN" ]; then
         UBOOT_SIZE=$(stat -c%s "$UBOOT_BIN" 2>/dev/null || stat -f%z "$UBOOT_BIN" 2>/dev/null)
-        info "✓ Found u-boot.bin ($UBOOT_SIZE bytes)"
+        info "✓ Found u-boot-dtb.bin ($UBOOT_SIZE bytes)"
     else
-        warn "u-boot.bin not found at: $UBOOT_BIN"
+        warn "u-boot-dtb.bin not found at: $UBOOT_BIN"
         info "  (Required for 'install' command)"
     fi
 
@@ -454,11 +554,11 @@ cmd_install() {
     verify_tachyon_device
     check_prerequisites
 
-    # Push u-boot.bin to device if using ADB
+    # Push u-boot-dtb.bin to device if using ADB
     if [ "$INSTALL_MODE" = "adb" ]; then
-        info "Pushing u-boot.bin to device..."
-        push_to_device "$UBOOT_BIN" "/tmp/u-boot.bin"
-        UBOOT_BIN_DEVICE="/tmp/u-boot.bin"
+        info "Pushing u-boot-dtb.bin to device..."
+        push_to_device "$UBOOT_BIN" "/tmp/u-boot-dtb.bin"
+        UBOOT_BIN_DEVICE="/tmp/u-boot-dtb.bin"
     else
         UBOOT_BIN_DEVICE="$UBOOT_BIN"
     fi
@@ -526,7 +626,7 @@ cmd_install() {
 
     section "5) PATCH BOOTLOADER WITH U-BOOT"
 
-    info "Patching xbl with u-boot.bin using patchxbl.py..."
+    info "Patching xbl with u-boot-dtb.bin using patchxbl.py..."
     if [ "$INSTALL_MODE" = "device" ]; then
         python3 "$QTOOLS_DIR/patchxbl.py" \
             -o "$WORK_DIR/xbl_patched.elf" \
@@ -616,7 +716,7 @@ cmd_install() {
 
     section "✓ INSTALLATION COMPLETE"
 
-    info "u-boot.bin has been successfully installed to both xbl_a and xbl_b partitions"
+    info "u-boot-dtb.bin has been successfully installed to both xbl_a and xbl_b partitions"
     info "You can now reboot the device to boot with the new u-boot"
     warn "Make sure you have a way to recover if the device fails to boot!"
 
