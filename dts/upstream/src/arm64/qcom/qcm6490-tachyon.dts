@@ -1426,3 +1426,136 @@
 		};
 	};
 };
+
+/* Enable Camera Subsystem (ISP and CSI blocks) */
+&camss {
+	status = "okay";
+
+	vdda-supply = <&vreg_l5b_0p752>;
+	vdda-phy-supply = <&vreg_l10c_0p88>;
+	vdda-pll-supply = <&vreg_l6b_1p2>;
+
+	/* Override clock-names to include missing downstream clocks
+	 * The downstream driver expects:
+	 *   - "soc_ahb" (mainline has "cpas_ahb")
+	 *   - "gcc_camera_axi" (mainline has "gcc_axi_hf")
+	 *   - "vfe0_lite" (mainline has "vfe_lite0")
+	 *   - "vfe1_lite" (mainline has "vfe_lite1")
+	 *   - "csi0" (mainline has "vfe0_csid")
+	 *   - "csi1" (mainline has "vfe1_csid")
+	 *   - "csi2" (mainline has "vfe2_csid")
+	 *   - "csi3" (mainline has "vfe_lite0_csid" and "vfe_lite1_csid")
+	 *   - "vfe0_lite_cphy_rx" (mainline has "vfe_lite0_cphy_rx")
+	 *   - "vfe1_lite_cphy_rx" (mainline has "vfe_lite1_cphy_rx")
+	 * We add the missing names as references to appropriate mainline clocks
+	 */
+	clock-names = "camnoc_axi",
+		      "cpas_ahb",
+		      "soc_ahb",		/* Added for driver compatibility - same as cpas_ahb */
+		      "csiphy0",
+		      "csiphy0_timer",
+		      "csiphy1",
+		      "csiphy1_timer",
+		      "csiphy2",
+		      "csiphy2_timer",
+		      "csiphy3",
+		      "csiphy3_timer",
+		      "csiphy4",
+		      "csiphy4_timer",
+		      "gcc_axi_hf",
+		      "gcc_axi_sf",
+		      "gcc_camera_axi",		/* Added for driver compatibility - same as gcc_axi_hf */
+		      "icp_ahb",
+		      "vfe0",
+		      "vfe0_axi",
+		      "vfe0_cphy_rx",
+		      "vfe0_csid",
+		      "csi0",			/* Added for driver compatibility - same as vfe0_csid */
+		      "vfe1",
+		      "vfe1_axi",
+		      "vfe1_cphy_rx",
+		      "vfe1_csid",
+		      "csi1",			/* Added for driver compatibility - same as vfe1_csid */
+		      "vfe2",
+		      "vfe2_axi",
+		      "vfe2_cphy_rx",
+		      "vfe2_csid",
+		      "csi2",			/* Added for driver compatibility - same as vfe2_csid */
+		      "vfe_lite0",
+		      "vfe_lite0_cphy_rx",
+		      "vfe_lite0_csid",
+		      "csi3",			/* Added for driver compatibility - same as vfe_lite0_csid */
+		      "vfe0_lite",		/* Added for driver compatibility - same as vfe_lite0 */
+		      "vfe_lite1",
+		      "vfe_lite1_cphy_rx",
+		      "vfe_lite1_csid",
+		      "csi3",			/* Added for driver compatibility - same as vfe_lite1_csid (both CSID3 and CSID4 use csi3) */
+		      "vfe1_lite";		/* Added for driver compatibility - same as vfe_lite1 */
+
+	/* Add the corresponding clock phandles for soc_ahb, gcc_camera_axi, vfe0_lite, vfe1_lite, csi0, csi1, csi2, csi3 */
+	clocks = <&camcc CAM_CC_CAMNOC_AXI_CLK>,
+		 <&camcc CAM_CC_CPAS_AHB_CLK>,
+		 <&camcc CAM_CC_CPAS_AHB_CLK>,	/* soc_ahb - duplicate of cpas_ahb */
+		 <&camcc CAM_CC_CSIPHY0_CLK>,
+		 <&camcc CAM_CC_CSI0PHYTIMER_CLK>,
+		 <&camcc CAM_CC_CSIPHY1_CLK>,
+		 <&camcc CAM_CC_CSI1PHYTIMER_CLK>,
+		 <&camcc CAM_CC_CSIPHY2_CLK>,
+		 <&camcc CAM_CC_CSI2PHYTIMER_CLK>,
+		 <&camcc CAM_CC_CSIPHY3_CLK>,
+		 <&camcc CAM_CC_CSI3PHYTIMER_CLK>,
+		 <&camcc CAM_CC_CSIPHY4_CLK>,
+		 <&camcc CAM_CC_CSI4PHYTIMER_CLK>,
+		 <&gcc GCC_CAMERA_HF_AXI_CLK>,
+		 <&gcc GCC_CAMERA_SF_AXI_CLK>,
+		 <&gcc GCC_CAMERA_HF_AXI_CLK>,	/* gcc_camera_axi - duplicate of gcc_axi_hf */
+		 <&camcc CAM_CC_ICP_AHB_CLK>,
+		 <&camcc CAM_CC_IFE_0_CLK>,
+		 <&camcc CAM_CC_IFE_0_AXI_CLK>,
+		 <&camcc CAM_CC_IFE_0_CPHY_RX_CLK>,
+		 <&camcc CAM_CC_IFE_0_CSID_CLK>,
+		 <&camcc CAM_CC_IFE_0_CSID_CLK>,	/* csi0 - duplicate of vfe0_csid */
+		 <&camcc CAM_CC_IFE_1_CLK>,
+		 <&camcc CAM_CC_IFE_1_AXI_CLK>,
+		 <&camcc CAM_CC_IFE_1_CPHY_RX_CLK>,
+		 <&camcc CAM_CC_IFE_1_CSID_CLK>,
+		 <&camcc CAM_CC_IFE_1_CSID_CLK>,	/* csi1 - duplicate of vfe1_csid */
+		 <&camcc CAM_CC_IFE_2_CLK>,
+		 <&camcc CAM_CC_IFE_2_AXI_CLK>,
+		 <&camcc CAM_CC_IFE_2_CPHY_RX_CLK>,
+		 <&camcc CAM_CC_IFE_2_CSID_CLK>,
+		 <&camcc CAM_CC_IFE_2_CSID_CLK>,	/* csi2 - duplicate of vfe2_csid */
+		 <&camcc CAM_CC_IFE_LITE_0_CLK>,
+		 <&camcc CAM_CC_IFE_LITE_0_CPHY_RX_CLK>,
+		 <&camcc CAM_CC_IFE_LITE_0_CSID_CLK>,
+		 <&camcc CAM_CC_IFE_LITE_0_CSID_CLK>,	/* csi3 - duplicate of vfe_lite0_csid */
+		 <&camcc CAM_CC_IFE_LITE_0_CLK>,	/* vfe0_lite - duplicate of vfe_lite0 */
+		 <&camcc CAM_CC_IFE_LITE_1_CLK>,
+		 <&camcc CAM_CC_IFE_LITE_1_CPHY_RX_CLK>,
+		 <&camcc CAM_CC_IFE_LITE_1_CSID_CLK>,
+		 <&camcc CAM_CC_IFE_LITE_1_CSID_CLK>,	/* csi3 - duplicate of vfe_lite1_csid (both CSID3 and CSID4 use csi3) */
+		 <&camcc CAM_CC_IFE_LITE_1_CLK>;	/* vfe1_lite - duplicate of vfe_lite1 */
+
+	operating-points-v2 = <&camss_opp_table>;
+
+	camss_opp_table: opp-table {
+		compatible = "operating-points-v2";
+
+		/* Low power state - minimal frequency when idle */
+		opp-200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			required-opps = <&rpmhpd_opp_low_svs>;
+		};
+
+		/* High performance state - maximum frequency when ISP active */
+		opp-600000000 {
+			opp-hz = /bits/ 64 <600000000>;
+			required-opps = <&rpmhpd_opp_nom>;
+		};
+	};
+};
+
+/* Enable Camera Clock Controller */
+&camcc {
+	status = "okay";
+};
