@@ -716,7 +716,7 @@ cmd_install() {
 
     section "10) INSTALL DEVICE TREE OVERLAYS"
 
-    # Find and install .dtbo files to /boot/dtbo/
+    # Find and install .dtbo files to /mnt/userdata/boot/
     # In both modes (device and ADB), the DTBO_DIR is on the host running this script
     if [ "$INSTALL_MODE" = "device" ]; then
         DTBO_DIR="${SCRIPT_DIR}/dts/upstream/qcom"
@@ -724,16 +724,22 @@ cmd_install() {
         # For ADB mode, DTBO_DIR is still on the host (where install.sh is running)
         DTBO_DIR="${SCRIPT_DIR}/dts/upstream/qcom"
     fi
-    DTBO_TARGET="/boot/dtbo"
+    DTBO_TARGET="/mnt/userdata/boot"
 
     # Check if DTBO directory exists and has .dtbo files (always checked on host)
     if [ -d "$DTBO_DIR" ] && compgen -G "$DTBO_DIR"/*.dtbo > /dev/null 2>&1; then
         info "Found device tree overlay files, installing to $DTBO_TARGET..."
 
-        # Create target directory on device if it doesn't exist
+        # Mount userdata partition and create target directory
         if [ "$INSTALL_MODE" = "device" ]; then
+            # On device, ensure userdata is mounted
+            mkdir -p /mnt/userdata 2>/dev/null || true
+            mount /dev/disk/by-partlabel/userdata /mnt/userdata 2>/dev/null || true
             mkdir -p "$DTBO_TARGET" 2>/dev/null || true
         else
+            # Via ADB: ensure userdata is mounted
+            run_on_device_sudo mkdir -p /mnt/userdata
+            run_on_device_sudo mount /dev/disk/by-partlabel/userdata /mnt/userdata 2>/dev/null || true
             run_on_device_sudo mkdir -p "$DTBO_TARGET"
         fi
 
@@ -750,11 +756,17 @@ cmd_install() {
                 # On device, copy directly (we're already root from check_root)
                 cp "$dtbo_file" "$DTBO_TARGET/" || error "Failed to copy $dtbo_name to $DTBO_TARGET"
             else
-                # Via ADB: push to temp, then move with sudo
-                push_to_device "$dtbo_file" "/tmp/$dtbo_name" || error "Failed to push $dtbo_name to device"
-                run_on_device_sudo mv "/tmp/$dtbo_name" "$DTBO_TARGET/" || error "Failed to move $dtbo_name to $DTBO_TARGET"
+                # Via ADB: push directly to userdata boot partition
+                push_to_device "$dtbo_file" "$DTBO_TARGET/$dtbo_name" || error "Failed to push $dtbo_name to device"
             fi
         done
+
+        # Sync filesystem
+        if [ "$INSTALL_MODE" = "device" ]; then
+            sync
+        else
+            run_on_device_sudo sync
+        fi
 
         info "✓ Installed device tree overlays to $DTBO_TARGET"
     else

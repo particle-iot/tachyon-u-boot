@@ -24,18 +24,18 @@
 			reg = <1>;
 		};
 
-		// CSIPHY2 - IMX219 camera on dedicated CSI2 port
+		// CSIPHY2 - Available for future use
 		port@2 {
 			reg = <2>;
-			csiphy2_ep: endpoint {
+		};
+
+		// CSIPHY3 - IMX219 camera (matches 20.04 working config)
+		port@3 {
+			reg = <3>;
+			csiphy3_ep: endpoint {
 				data-lanes = <1 2>;
 				remote-endpoint = <&imx219_ep>;
 			};
-		};
-
-		// CSIPHY3-4 - Available for future use
-		port@3 {
-			reg = <3>;
 		};
 
 		port@4 {
@@ -55,14 +55,14 @@
 
 		clocks = <&camcc CAM_CC_MCLK3_CLK>;
 		clock-names = "xclk";
-		clock-frequency = <24000000>;
+		clock-frequency = <19200000>;
 
 		vddl-supply = <&vreg_l1c_1p8>;   // 1.8V digital I/O
 		vdig-supply = <&vreg_l1c_1p8>;    // 1.2V digital core
 		vana-supply = <&vreg_l3c_2p8>;    // 2.8V analog
 
-		reset-gpios = <&tlmm 78 GPIO_ACTIVE_LOW>;    // Reset on GPIO78
-		enable-gpios = <&tlmm 79 GPIO_ACTIVE_HIGH>;  // Power enable on GPIO79
+		reset-gpios = <&tlmm 141 GPIO_ACTIVE_LOW>;    // Reset on GPIO141 (matches 20.04)
+		enable-gpios = <&tlmm 107 GPIO_ACTIVE_HIGH>; // Enable on GPIO107 (matches 20.04)
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&cam_sensor_mclk3_active &cam_sensor_active_rst3 &cam_sensor_pwr_en>;
@@ -71,7 +71,7 @@
 			imx219_ep: endpoint {
 				data-lanes = <1 2>;
 				link-frequencies = /bits/ 64 <456000000>;
-				remote-endpoint = <&csiphy2_ep>;
+				remote-endpoint = <&csiphy3_ep>;
 			};
 		};
 	};
@@ -86,18 +86,18 @@
 	};
 
 	cam_sensor_active_rst3: cam-sensor-active-rst3-state {
-		pins = "gpio78";
+		pins = "gpio141";
 		function = "gpio";
 		drive-strength = <2>;
 		bias-disable;
-		output-low;
+		output-high;  /* De-assert reset (active-low) */
 	};
 
 	cam_sensor_pwr_en: cam-sensor-pwr-en-state {
-		pins = "gpio79";
+		pins = "gpio107";
 		function = "gpio";
 		drive-strength = <2>;
 		bias-disable;
-		output-high;
+		output-high;  /* Enable camera power */
 	};
 };
