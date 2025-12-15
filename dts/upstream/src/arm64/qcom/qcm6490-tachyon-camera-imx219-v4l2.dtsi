@@ -1,0 +1,270 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) 2025 Particle Industries, Inc. All rights reserved.
+ *
+ * IMX219 Camera Module Support for Tachyon Board - V4L2 Mainline Driver
+ * This configuration uses the standard Linux IMX219 V4L2 driver
+ *
+ * Hardware Requirements:
+ * - IMX219 sensor (RPi Camera Module v2)
+ * - MIPI CSI-2 interface connection via CSI1 (CSIPHY3)
+ * - Power supply: 2.8V (VANA), 1.2V (VDIG), 1.8V (VDDL)
+ * - 24MHz clock input (MCLK3)
+ *
+ * GPIO Assignments (Tachyon hardware configuration):
+ * - GPIO 67: MCLK3 (24MHz camera clock)
+ * - CCI1 I2C (camera control)
+ * - GPIO 141: Camera reset (active-low)
+ * - GPIO 107: Camera power enable (active-high)
+ * - Tachyon board: IMX219 (V4L2 / qcom-camss) on CCI1 + CSIPHY3 (CSI-3), 2-lane.
+ */
+
+/* ------------------------------------------------------------------------- */
+/* Pinctrl: MCLK3(GPIO67 cam_mclk), RESET(GPIO141), PWR_EN(GPIO107)          */
+/* ------------------------------------------------------------------------- */
+&tlmm {
+	cam_sensor_mclk3_active: cam-sensor-mclk3-active-state {
+		/* MCLK3 */
+		pins = "gpio67";
+		function = "cam_mclk";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+	cam_sensor_mclk3_suspend: cam-sensor-mclk3-suspend-state {
+		/* MCLK3 */
+		pins = "gpio67";
+		function = "cam_mclk";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+
+	cam_sensor_active_rst3: cam-sensor-active-rst3-state {
+		/* RESET 3 */
+		pins = "gpio141";
+		function = "gpio";
+		drive-strength = <2>;
+		output-high;
+		bias-disable;
+	};
+
+	cam_sensor_suspend_rst3: cam-sensor-suspend-rst3-state {
+		/* RESET 3 */
+		pins = "gpio141";
+		function = "gpio";
+		drive-strength = <2>;
+		output-low;
+		bias-pull-down;
+	};
+
+	cam_sensor_pwr_en3_active: cam-sensor-pwr-en3-active-state {
+		/* PWR_EN 3 */
+		pins = "gpio107";
+		function = "gpio";
+		drive-strength = <2>;
+		output-high;
+		bias-disable;
+	};
+
+	cam_sensor_pwr_en3_suspend: cam-sensor-pwr-en3-suspend-state {
+		/* PWR_EN 3 */
+		pins = "gpio107";
+		function = "gpio";
+		drive-strength = <2>;
+		output-low;
+		bias-pull-down;
+	};
+};
+
+/* ------------------------------------------------------------------------- */
+/* CAMCC / CAMSS */
+/* ------------------------------------------------------------------------- */
+&camcc {
+	status = "okay";
+	/* Add MX power domain so camcc can enable clocks before CAMSS powers up */
+	power-domains = <&rpmhpd SC7280_MX>;
+	required-opps = <&rpmhpd_opp_low_svs>;
+};
+
+&camss {
+	vdda-supply = <&vreg_l5b_0p752>;
+	vdda-phy-supply = <&vreg_l10c_0p88>;
+	vdda-pll-supply = <&vreg_l6b_1p2>;
+	status = "okay";
+
+	/*
+	 * The upstream qcom-camss driver expects a number of legacy
+	 * clock aliases (csi*, vfe*_lite, gcc_camera_axi, etc.) that
+	 * are not provided by the SoC DTSI by default. Provide the
+	 * aliases here by mapping them onto the real camcc/gcc clocks.
+	 */
+	clock-names = "camnoc_axi",
+		      "cpas_ahb",
+		      "soc_ahb",
+		      "csiphy0",
+		      "csiphy0_timer",
+		      "csiphy1",
+		      "csiphy1_timer",
+		      "csiphy2",
+		      "csiphy2_timer",
+		      "csiphy3",
+		      "csiphy3_timer",
+		      "csiphy4",
+		      "csiphy4_timer",
+		      "gcc_axi_hf",
+		      "gcc_axi_sf",
+		      "gcc_camera_axi",
+		      "icp_ahb",
+		      "vfe0",
+		      "vfe0_axi",
+		      "vfe0_cphy_rx",
+		      "vfe0_csid",
+		      "csi0",
+		      "vfe1",
+		      "vfe1_axi",
+		      "vfe1_cphy_rx",
+		      "vfe1_csid",
+		      "csi1",
+		      "vfe2",
+		      "vfe2_axi",
+		      "vfe2_cphy_rx",
+		      "vfe2_csid",
+		      "csi2",
+		      "vfe0_lite",
+		      "vfe0_lite_cphy_rx",
+		      "vfe0_lite_csid",
+		      "csi3",
+		      "vfe_lite0",
+		      "vfe_lite0_cphy_rx",
+		      "vfe_lite0_csid",
+		      "vfe1_lite",
+		      "vfe1_lite_cphy_rx",
+		      "vfe1_lite_csid";
+
+	clocks = <&camcc CAM_CC_CAMNOC_AXI_CLK>,
+		 <&camcc CAM_CC_CPAS_AHB_CLK>,
+		 <&camcc CAM_CC_CPAS_AHB_CLK>,		/* soc_ahb alias */
+		 <&camcc CAM_CC_CSIPHY0_CLK>,
+		 <&camcc CAM_CC_CSI0PHYTIMER_CLK>,
+		 <&camcc CAM_CC_CSIPHY1_CLK>,
+		 <&camcc CAM_CC_CSI1PHYTIMER_CLK>,
+		 <&camcc CAM_CC_CSIPHY2_CLK>,
+		 <&camcc CAM_CC_CSI2PHYTIMER_CLK>,
+		 <&camcc CAM_CC_CSIPHY3_CLK>,
+		 <&camcc CAM_CC_CSI3PHYTIMER_CLK>,
+		 <&camcc CAM_CC_CSIPHY4_CLK>,
+		 <&camcc CAM_CC_CSI4PHYTIMER_CLK>,
+		 <&gcc GCC_CAMERA_HF_AXI_CLK>,
+		 <&gcc GCC_CAMERA_SF_AXI_CLK>,
+		 <&gcc GCC_CAMERA_HF_AXI_CLK>,		/* gcc_camera_axi alias */
+		 <&camcc CAM_CC_ICP_AHB_CLK>,
+		 <&camcc CAM_CC_IFE_0_CLK>,
+		 <&camcc CAM_CC_IFE_0_AXI_CLK>,
+		 <&camcc CAM_CC_IFE_0_CPHY_RX_CLK>,
+		 <&camcc CAM_CC_IFE_0_CSID_CLK>,
+		 <&camcc CAM_CC_IFE_0_CSID_CLK>,	/* csi0 alias */
+		 <&camcc CAM_CC_IFE_1_CLK>,
+		 <&camcc CAM_CC_IFE_1_AXI_CLK>,
+		 <&camcc CAM_CC_IFE_1_CPHY_RX_CLK>,
+		 <&camcc CAM_CC_IFE_1_CSID_CLK>,
+		 <&camcc CAM_CC_IFE_1_CSID_CLK>,	/* csi1 alias */
+		 <&camcc CAM_CC_IFE_2_CLK>,
+		 <&camcc CAM_CC_IFE_2_AXI_CLK>,
+		 <&camcc CAM_CC_IFE_2_CPHY_RX_CLK>,
+		 <&camcc CAM_CC_IFE_2_CSID_CLK>,
+		 <&camcc CAM_CC_IFE_2_CSID_CLK>,	/* csi2 alias */
+		 <&camcc CAM_CC_IFE_LITE_0_CLK>,
+		 <&camcc CAM_CC_IFE_LITE_0_CPHY_RX_CLK>,
+		 <&camcc CAM_CC_IFE_LITE_0_CSID_CLK>,
+		 <&camcc CAM_CC_IFE_LITE_0_CSID_CLK>,/* csi3 alias */
+		 <&camcc CAM_CC_IFE_LITE_0_CLK>,	/* vfe_lite0 alias */
+		 <&camcc CAM_CC_IFE_LITE_0_CPHY_RX_CLK>,
+		 <&camcc CAM_CC_IFE_LITE_0_CSID_CLK>,
+		 <&camcc CAM_CC_IFE_LITE_1_CLK>,	/* vfe1_lite / vfe_lite1 */
+		 <&camcc CAM_CC_IFE_LITE_1_CPHY_RX_CLK>,
+		 <&camcc CAM_CC_IFE_LITE_1_CSID_CLK>;
+
+	/* Provide OPPs for the shared CAMSS power-domain */
+	operating-points-v2 = <&camss_opp_table>;
+
+	camss_opp_table: opp-table {
+		compatible = "operating-points-v2";
+
+		opp-200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			required-opps = <&rpmhpd_opp_low_svs>;
+		};
+
+		opp-600000000 {
+			opp-hz = /bits/ 64 <600000000>;
+			required-opps = <&rpmhpd_opp_nom>;
+		};
+	};
+
+	/* IMX219 uses CSI-3 via CSIPHY3/CCI1 */
+	ports {
+		port@3 {
+			csiphy3_ep: endpoint {
+				clock-lanes = <7>;
+				/* Use D0/D1 (2-lane) */
+				data-lanes = <0 1>;
+				remote-endpoint = <&imx219_ep>;
+			};
+		};
+	};
+};
+
+/* ------------------------------------------------------------------------- */
+/* CCI1 + I2C0 sensor node                                                   */
+/* ------------------------------------------------------------------------- */
+&cci1 {
+	status = "okay";
+};
+
+&cci1_i2c0 {
+	status = "okay";
+
+	imx219: camera@10 {
+		compatible = "sony,imx219";
+
+		/*
+		 * reg is 7-bit I2C address.
+		 * IMX219 default is 0x10 (7-bit), which matches i2cdetect (10).
+		 */
+		reg = <0x10>;
+
+		/* Reset and power-enable GPIOs */
+		reset-gpios = <&tlmm 141 GPIO_ACTIVE_LOW>;
+		enable-gpios = <&tlmm 107 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&cam_sensor_mclk3_active
+			     &cam_sensor_active_rst3
+			     &cam_sensor_pwr_en3_active>;
+		pinctrl-1 = <&cam_sensor_mclk3_suspend
+			     &cam_sensor_suspend_rst3
+			     &cam_sensor_pwr_en3_suspend>;
+
+		/* MCLK3 @ 24MHz */
+		clocks = <&camcc CAM_CC_MCLK3_CLK>;
+		assigned-clocks = <&camcc CAM_CC_MCLK3_CLK>;
+		assigned-clock-rates = <24000000>;
+
+		/* Regulators (keep consistent with your board) */
+		VANA-supply = <&vreg_l3c_2p8>;
+		VDIG-supply = <&vreg_l9b_1p2>;
+		VDDL-supply = <&vreg_l1c_1p8>;
+
+		status = "okay";
+
+		port {
+			imx219_ep: endpoint {
+				clock-lanes = <7>;
+				/* Must match camss side */
+				data-lanes = <0 1>;
+				link-frequencies = /bits/ 64 <456000000>;
+				remote-endpoint = <&csiphy3_ep>;
+			};
+		};
+	};
+};
