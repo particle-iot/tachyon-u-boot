@@ -18,9 +18,6 @@
 	vdda-supply = <&vreg_l6b_1p2>;
 	status = "okay";
 
-	pinctrl-names = "default";
-	pinctrl-0 = <&dsi_csi_sw_display>;
-
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -74,15 +71,5 @@
 		reg = <0x5d>;
 		reset-gpio = <&waveshare_panel_regulator 9 GPIO_ACTIVE_HIGH>;
 	};
-};
 
-&tlmm {
-	// DSI/CSI switch control - set to display mode
-	dsi_csi_sw_display: dsi-csi-sw-display-state {
-		pins = "gpio68";
-		function = "gpio";
-		drive-strength = <2>;
-		output-low;  // Select display mode (low=display, high=camera)
-		bias-disable;
-	};
 };
