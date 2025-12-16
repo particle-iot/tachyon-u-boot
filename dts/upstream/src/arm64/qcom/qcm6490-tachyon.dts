@@ -31,6 +31,38 @@
 	qcom,board-id = <0x22 0x00>;
 	qcom,msm-id = <0x1f1 0x10000>;
 
+	/*
+	 * cam is powered externally (always on). Model the internal module rails
+	 * as fixed regulators so the sensor driver can do its power sequencing
+	 * without toggling unrelated PMIC rails.
+	 */
+	cam_vana_2p8: regulator-cam-vana-2p8 {
+		compatible = "regulator-fixed";
+		regulator-name = "cam_vana_2p8";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	cam_vdig_1p05: regulator-cam-vdig-1p05 {
+		compatible = "regulator-fixed";
+		regulator-name = "cam_vdig_1p05";
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1050000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	cam_vddl_1p8: regulator-cam-vddl-1p8 {
+		compatible = "regulator-fixed";
+		regulator-name = "cam_vddl_1p8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
 	aliases {
 		serial0 = &uart5;  // Debug
 		
@@ -290,7 +322,7 @@
 			no-map;
 		};
 
-		camera@86200000 {
+		camera_mem: camera@86200000 {
 			reg = <0x00 0x86200000 0x00 0x500000>;
 			no-map;
 		};
@@ -759,7 +791,53 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&header_40pin_gpio_default>, <&peri_5v_en_default>,
        <&dsi_csi_sw_en_default>, <&dsi_csi_sw_sel_default>, <&syscon_rgb_reserved_default>,
-	   <&syscon_bls_invoke_ctrl_default>, <&syscon_reset_ctrl_default>, <&level_shifter_en_default>;
+		   <&syscon_bls_invoke_ctrl_default>, <&syscon_reset_ctrl_default>, <&level_shifter_en_default>;
+
+	csi1_mclk_default: csi1-mclk-default-state {
+		pins = "gpio67";
+		function = "cam_mclk";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+	csi1_mclk_sleep: csi1-mclk-sleep-state {
+		pins = "gpio67";
+		function = "cam_mclk";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+
+	csi1_reset_default: csi1-reset-default-state {
+		pins = "gpio141";
+		function = "gpio";
+		drive-strength = <2>;
+		output-high;
+		bias-disable;
+	};
+
+	csi1_reset_sleep: csi1-reset-sleep-state {
+		pins = "gpio141";
+		function = "gpio";
+		drive-strength = <2>;
+		output-low;
+		bias-pull-down;
+	};
+
+	csi1_power_en_default: csi1-power-en-default-state {
+		pins = "gpio107";
+		function = "gpio";
+		drive-strength = <2>;
+		output-high;
+		bias-disable;
+	};
+
+	csi1_power_en_sleep: csi1-power-en-sleep-state {
+		pins = "gpio107";
+		function = "gpio";
+		drive-strength = <2>;
+		output-low;
+		bias-pull-down;
+	};
 
 	bt_en_state_default: bt-en-default-state {
 		pins = "gpio85";
@@ -1229,6 +1307,11 @@
 /delete-node/ &usb_2_dwc3;
 
 &soc {
+	refgen: regulator@88e7000 {
+		compatible = "qcom,sm8250-refgen-regulator";
+		reg = <0x0 0x088e7000 0x0 0x84>;
+	};
+
 	connector_host: connector_host {
 		compatible = "usb-c-connector";
 		label = "HOST";
