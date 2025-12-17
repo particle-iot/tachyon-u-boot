@@ -2,7 +2,7 @@
 /*
  * Particle Tachyon camera overlay
  *
- * IMX219 on CSI1.
+ * IMX519 on CSI1.
  */
 
 /dts-v1/;
@@ -45,11 +45,10 @@
 
 		port@3 {
 			reg = <3>;
-
 			csiphy3_ep: endpoint {
 				clock-lanes = <7>;
 				data-lanes = <0 1>;
-				remote-endpoint = <&imx219_ep>;
+				remote-endpoint = <&imx519_ep>;
 			};
 		};
 	};
@@ -64,9 +63,9 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	imx219: camera@10 {
-		compatible = "sony,imx219";
-		reg = <0x10>;
+	imx519: camera@1a {
+		compatible = "sony,imx519";
+		reg = <0x1a>;
 
 		/* Expose standard V4L2 camera properties for libcamera */
 		orientation = <2>; /* V4L2_FWNODE_ORIENTATION_EXTERNAL */
@@ -90,9 +89,9 @@
 		status = "okay";
 
 		port {
-			imx219_ep: endpoint {
+			imx519_ep: endpoint {
 				clock-lanes = <7>;
-				link-frequencies = /bits/ 64 <456000000>;
+				link-frequencies = /bits/ 64 <493500000>;
 				data-lanes = <0 1>;
 				remote-endpoint = <&csiphy3_ep>;
 			};
