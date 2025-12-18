@@ -1,0 +1,111 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Particle Tachyon camera overlay
+ *
+ * IMX519 on CSI2.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,camcc-sc7280.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&camcc {
+	status = "okay";
+};
+
+&camss {
+	status = "okay";
+
+	vdda-supply = <&vreg_l5b_0p752>;
+	vdda-phy-supply = <&vreg_l10c_0p88>;
+	vdda-pll-supply = <&vreg_l6b_1p2>;
+
+	/* Provide OPPs for the shared CAMSS power-domain */
+	operating-points-v2 = <&camss_opp_table>;
+
+	camss_opp_table: opp-table {
+		compatible = "operating-points-v2";
+
+		opp-200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			required-opps = <&rpmhpd_opp_low_svs>;
+		};
+
+		opp-600000000 {
+			opp-hz = /bits/ 64 <600000000>;
+			required-opps = <&rpmhpd_opp_nom>;
+		};
+	};
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+			csiphy1_ep: endpoint {
+				clock-lanes = <7>;
+				data-lanes = <0 1>;
+				remote-endpoint = <&imx519_ep>;
+			};
+		};
+	};
+};
+
+&tlmm {
+	// DSI/CSI switch control - set to camera mode
+	dsi_csi_sw_display: dsi-csi-sw-display-state {
+		pins = "gpio68";
+		function = "gpio";
+		drive-strength = <2>;
+		output-high;  // Select display mode (low=display, high=camera)
+		bias-disable;
+	};
+};
+
+&cci0 {
+	status = "okay";
+};
+
+&cci0_i2c1 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	imx519: camera@1a {
+		compatible = "sony,imx519";
+		reg = <0x1a>;
+
+		/* Expose standard V4L2 camera properties for libcamera */
+		orientation = <2>; /* V4L2_FWNODE_ORIENTATION_EXTERNAL */
+		rotation = <0>; /* degrees, 0..359 */
+
+		reset-gpios = <&tlmm 21 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&csi2_mclk_default &csi2_reset_default
+			     &csi2_power_en_default &dsi_csi_sw_display>;
+		pinctrl-1 = <&csi2_mclk_sleep &csi2_reset_sleep
+			     &csi2_power_en_sleep>;
+
+		clocks = <&camcc CAM_CC_MCLK1_CLK>;
+		assigned-clocks = <&camcc CAM_CC_MCLK1_CLK>;
+		assigned-clock-rates = <24000000>;
+
+		VANA-supply = <&cam_vana_2p8>;
+		VDIG-supply = <&cam_vdig_1p05>;
+		VDDL-supply = <&cam_vddl_1p8>;
+
+		status = "okay";
+
+		port {
+			imx519_ep: endpoint {
+				clock-lanes = <7>;
+				link-frequencies = /bits/ 64 <493500000>;
+				data-lanes = <0 1>;
+				remote-endpoint = <&csiphy1_ep>;
+			};
+		};
+	};
+};
