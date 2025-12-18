@@ -790,7 +790,7 @@
 &tlmm {
 	pinctrl-names = "default";
 	pinctrl-0 = <&header_40pin_gpio_default>, <&peri_5v_en_default>,
-       <&dsi_csi_sw_en_default>, <&dsi_csi_sw_sel_default>, <&syscon_rgb_reserved_default>,
+       <&dsi_csi_sw_en_default>, <&syscon_rgb_reserved_default>,
 		   <&syscon_bls_invoke_ctrl_default>, <&syscon_reset_ctrl_default>, <&level_shifter_en_default>;
 
 	csi1_mclk_default: csi1-mclk-default-state {
@@ -833,6 +833,52 @@
 
 	csi1_power_en_sleep: csi1-power-en-sleep-state {
 		pins = "gpio107";
+		function = "gpio";
+		drive-strength = <2>;
+		output-low;
+		bias-pull-down;
+	};
+
+	csi2_mclk_default: csi2-mclk-default-state {
+		pins = "gpio65";
+		function = "cam_mclk";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+	csi2_mclk_sleep: csi2-mclk-sleep-state {
+		pins = "gpio65";
+		function = "cam_mclk";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+
+	csi2_reset_default: csi2-reset-default-state {
+		pins = "gpio54";
+		function = "gpio";
+		drive-strength = <2>;
+		output-high;
+		bias-disable;
+	};
+
+	csi2_reset_sleep: csi2-reset-sleep-state {
+		pins = "gpio54";
+		function = "gpio";
+		drive-strength = <2>;
+		output-low;
+		bias-pull-down;
+	};
+
+	csi2_power_en_default: csi2-power-en-default-state {
+		pins = "gpio12";
+		function = "gpio";
+		drive-strength = <2>;
+		output-high;
+		bias-disable;
+	};
+
+	csi2_power_en_sleep: csi2-power-en-sleep-state {
+		pins = "gpio12";
 		function = "gpio";
 		drive-strength = <2>;
 		output-low;
@@ -985,14 +1031,6 @@
 
 	dsi_csi_sw_en_default: dsi-csi-sw-en-state {
 		pins = "gpio15";
-		function = "gpio";
-		drive-strength = <2>;
-		output-low;
-		bias-disable;
-	};
-
-	dsi_csi_sw_sel_default: dsi-csi-sw-sel-state {
-		pins = "gpio68";
 		function = "gpio";
 		drive-strength = <2>;
 		output-low;
