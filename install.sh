@@ -336,11 +336,25 @@ check_internet_connectivity() {
 
     if [ "$INSTALL_MODE" = "device" ]; then
         if ! ping -c 1 -W 2 8.8.8.8 &>/dev/null; then
-            error "Device has no internet connectivity - cannot download qtoolsign"
+            echo ""
+            error "Device has no internet connectivity - cannot download qtoolsign
+
+To connect to WiFi, run:
+  nmcli device wifi connect NETWORK password PASSWORD
+
+Replace NETWORK with your WiFi SSID and PASSWORD with your WiFi password.
+"
         fi
     else
         if ! run_on_device "ping -c 1 -W 2 8.8.8.8" &>/dev/null; then
-            error "Device has no internet connectivity - cannot download qtoolsign"
+            echo ""
+            error "Device has no internet connectivity - cannot download qtoolsign
+
+To connect to WiFi, run:
+  $ADB_CMD shell 'nmcli device wifi connect NETWORK password PASSWORD'
+
+Replace NETWORK with your WiFi SSID and PASSWORD with your WiFi password.
+"
         fi
     fi
 
@@ -360,14 +374,32 @@ install_qtoolsign() {
             error "git not found - please install git first: sudo apt-get install -y git"
         fi
         if ! command -v pip3 &>/dev/null; then
-            error "pip3 not found - please install python3-pip first: sudo apt-get install -y python3-pip"
+            warn "pip3 not found - installing python3-pip..."
+            # Check if apt needs fixing
+            if ! sudo dpkg --configure -a 2>&1 | grep -q "0 newly installed"; then
+                info "Fixing broken apt packages..."
+                sudo apt --fix-broken install -y || true
+            fi
+            sudo dpkg --configure -a || true
+            sudo apt-get update || true
+            sudo apt-get install -y python3-pip || error "Failed to install python3-pip"
+            info "✓ Installed python3-pip"
         fi
     else
         if ! run_on_device which git &>/dev/null; then
-            error "git not found on device - please install: adb shell 'sudo apt-get install -y git'"
+            error "git not found on device - please install: $ADB_CMD shell 'sudo apt-get install -y git'"
         fi
         if ! run_on_device which pip3 &>/dev/null; then
-            error "pip3 not found on device - please install: adb shell 'sudo apt-get install -y python3-pip'"
+            warn "pip3 not found - installing python3-pip..."
+            # Check if apt needs fixing
+            if run_on_device_sudo dpkg --configure -a 2>&1 | grep -q -v "0 newly installed"; then
+                info "Fixing broken apt packages..."
+                run_on_device_sudo apt --fix-broken install -y || true
+            fi
+            run_on_device_sudo dpkg --configure -a || true
+            run_on_device_sudo apt-get update || true
+            run_on_device_sudo apt-get install -y python3-pip || error "Failed to install python3-pip"
+            info "✓ Installed python3-pip"
         fi
     fi
     info "✓ Required tools available"
