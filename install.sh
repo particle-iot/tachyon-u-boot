@@ -14,10 +14,14 @@ QTOOLS_CLONE_URL="https://github.com/msm8916-mainline/qtestsign.git"
 QTOOLS_REF="main"
 WORK_DIR="/tmp/tachyon-uboot-install-$$"
 
-# Installation mode: "device" or "adb"
+# Installation mode: "device", "adb", or "ssh"
 INSTALL_MODE=""
 ADB_SERIAL="${ADB_SERIAL:-}"
 ADB_CMD="adb"
+SSH_HOST="${SSH_HOST:-}"
+SSH_PASSWORD="${SSH_PASSWORD:-}"
+SSH_CMD="ssh"
+SCP_CMD="scp"
 AUTO_CONFIRM="no"
 
 # Parse arguments
@@ -34,6 +38,18 @@ while [[ $# -gt 0 ]]; do
             ;;
         --serial)
             ADB_SERIAL="$2"
+            shift 2
+            ;;
+        --ssh)
+            INSTALL_MODE="ssh"
+            shift
+            ;;
+        --ssh-host)
+            SSH_HOST="$2"
+            shift 2
+            ;;
+        --ssh-password)
+            SSH_PASSWORD="$2"
             shift 2
             ;;
         --yes|-y)
@@ -63,6 +79,46 @@ if [ "$INSTALL_MODE" = "adb" ] && [ -n "$ADB_SERIAL" ]; then
     ADB_CMD="adb -s $ADB_SERIAL"
 fi
 
+# Setup SSH/SCP commands with password authentication if specified
+if [ "$INSTALL_MODE" = "ssh" ]; then
+    if [ -z "$SSH_HOST" ]; then
+        error "SSH mode requires --ssh-host parameter (e.g., root@192.168.86.42)"
+    fi
+
+    # Check if sshpass is available for password authentication
+    USE_SSHPASS=false
+    if [ -n "$SSH_PASSWORD" ]; then
+        if command -v sshpass &> /dev/null; then
+            USE_SSHPASS=true
+        else
+            warn "sshpass not found - install it for automatic password authentication"
+            warn "  macOS: brew install hudochenkov/sshpass/sshpass"
+            warn "  Linux: sudo apt-get install sshpass"
+            warn "You will be prompted for the password for each SSH/SCP operation"
+        fi
+    fi
+fi
+
+# Helper function to execute SSH commands
+ssh_exec() {
+    if [ "$USE_SSHPASS" = true ]; then
+        sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "$SSH_HOST" "$@"
+    else
+        ssh -o StrictHostKeyChecking=no "$SSH_HOST" "$@"
+    fi
+}
+
+# Helper function to execute SCP commands
+scp_exec() {
+    local src="$1"
+    local dst="$2"
+    if [ "$USE_SSHPASS" = true ]; then
+        sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no "$src" "$dst"
+    else
+        scp -o StrictHostKeyChecking=no "$src" "$dst"
+    fi
+}
+
 # Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -89,39 +145,52 @@ section() {
     echo -e "${GREEN}========================================${NC}"
 }
 
-# Execute command on device (locally or via ADB)
+# Execute command on device (locally, via ADB, or via SSH)
 run_on_device() {
     if [ "$INSTALL_MODE" = "device" ]; then
         "$@"
-    else
+    elif [ "$INSTALL_MODE" = "adb" ]; then
         $ADB_CMD shell "$@"
+    elif [ "$INSTALL_MODE" = "ssh" ]; then
+        ssh_exec "$@"
     fi
 }
 
-# Execute command on device as root (locally or via ADB)
+# Execute command on device as root (locally, via ADB, or via SSH)
 run_on_device_sudo() {
     if [ "$INSTALL_MODE" = "device" ]; then
         "$@"
-    else
+    elif [ "$INSTALL_MODE" = "adb" ]; then
         $ADB_CMD shell "sudo $*"
+    elif [ "$INSTALL_MODE" = "ssh" ]; then
+        # SSH: if connecting as root, no sudo needed; otherwise use sudo
+        if [[ "$SSH_HOST" == root@* ]]; then
+            ssh_exec "$*"
+        else
+            ssh_exec "sudo $*"
+        fi
     fi
 }
 
-# Push file to device (only for ADB mode, no-op for device mode)
+# Push file to device (for ADB and SSH modes, no-op for device mode)
 push_to_device() {
     local src="$1"
     local dst="$2"
     if [ "$INSTALL_MODE" = "adb" ]; then
         $ADB_CMD push "$src" "$dst"
+    elif [ "$INSTALL_MODE" = "ssh" ]; then
+        scp_exec "$src" "$SSH_HOST:$dst"
     fi
 }
 
-# Pull file from device (only for ADB mode, no-op for device mode)
+# Pull file from device (for ADB and SSH modes, no-op for device mode)
 pull_from_device() {
     local src="$1"
     local dst="$2"
     if [ "$INSTALL_MODE" = "adb" ]; then
         $ADB_CMD pull "$src" "$dst"
+    elif [ "$INSTALL_MODE" = "ssh" ]; then
+        scp_exec "$SSH_HOST:$src" "$dst"
     fi
 }
 
@@ -131,21 +200,25 @@ cleanup() {
             rm -rf "$WORK_DIR"
         fi
     else
-        # Clean up on device via ADB
+        # Clean up on device via ADB or SSH
         run_on_device_sudo rm -rf "$WORK_DIR" 2>/dev/null || true
     fi
 }
 
 show_help() {
     cat << EOF
-Usage: $0 --device <command>               # Run on device (requires sudo)
-       $0 --adb [--serial ID] <command>    # Run via ADB from host
+Usage: $0 --device <command>                              # Run on device (requires sudo)
+       $0 --adb [--serial ID] <command>                   # Run via ADB from host
+       $0 --ssh --ssh-host USER@HOST [--ssh-password PWD] <command>  # Run via SSH from host
 
 Options:
-    --device        Run installation locally on the device (requires sudo)
-    --adb           Run installation remotely via ADB from host computer
-    --serial ID     Specify ADB device serial (optional, uses ADB_SERIAL env var)
-    --yes, -y       Auto-confirm installation (skip confirmation prompt)
+    --device              Run installation locally on the device (requires sudo)
+    --adb                 Run installation remotely via ADB from host computer
+    --serial ID           Specify ADB device serial (optional, uses ADB_SERIAL env var)
+    --ssh                 Run installation remotely via SSH from host computer
+    --ssh-host USER@HOST  SSH connection string (e.g., root@192.168.86.42)
+    --ssh-password PWD    SSH password (optional, uses SSH_PASSWORD env var or key auth)
+    --yes, -y             Auto-confirm installation (skip confirmation prompt)
 
 Commands:
     help            Show this help message
@@ -157,6 +230,8 @@ Commands:
 Environment Variables:
     QTOOLS_DIR      Path to qtestsign tools on device (default: /tmp/qtoolsign)
     ADB_SERIAL      ADB device serial number (alternative to --serial flag)
+    SSH_HOST        SSH connection string (alternative to --ssh-host flag)
+    SSH_PASSWORD    SSH password (alternative to --ssh-password flag)
 
 Examples:
     # Local installation (on device)
@@ -169,10 +244,17 @@ Examples:
     $0 --adb --serial 449730e9 install  # Install via ADB to specific device
     ADB_SERIAL=449730e9 $0 --adb install  # Install via ADB using env var
 
+    # Remote installation (via SSH from host)
+    $0 --ssh --ssh-host root@192.168.86.42 --ssh-password particle check
+    $0 --ssh --ssh-host root@192.168.86.42 --ssh-password particle install --yes
+    SSH_HOST=root@192.168.86.42 SSH_PASSWORD=particle $0 --ssh install --yes
+
 Troubleshooting:
     # If device has no internet connection (needed for qtoolsign download):
-    1. Connect via ADB shell:
+    1. Connect via ADB shell or SSH:
        adb shell
+       # or
+       ssh root@192.168.86.42
 
     2. Connect to WiFi network:
        nmcli dev wifi connect <network-name> password <password>
@@ -182,6 +264,13 @@ Troubleshooting:
 
     # If pip3 is not installed:
     adb shell 'sudo apt-get update && sudo apt-get install -y python3-pip'
+    # or via SSH:
+    ssh root@192.168.86.42 'apt-get update && apt-get install -y python3-pip'
+
+    # For SSH password authentication without prompts:
+    # Install sshpass:
+    #   macOS: brew install hudochenkov/sshpass/sshpass
+    #   Linux: sudo apt-get install sshpass
 
 EOF
     exit 0
@@ -345,7 +434,7 @@ To connect to WiFi, run:
 Replace NETWORK with your WiFi SSID and PASSWORD with your WiFi password.
 "
         fi
-    else
+    elif [ "$INSTALL_MODE" = "adb" ]; then
         if ! run_on_device "ping -c 1 -W 2 8.8.8.8" &>/dev/null; then
             echo ""
             error "Device has no internet connectivity - cannot download qtoolsign
@@ -355,6 +444,27 @@ To connect to WiFi, run:
 
 Replace NETWORK with your WiFi SSID and PASSWORD with your WiFi password.
 "
+        fi
+    elif [ "$INSTALL_MODE" = "ssh" ]; then
+        if ! run_on_device "ping -c 1 -W 2 8.8.8.8" &>/dev/null; then
+            echo ""
+            if [ "$USE_SSHPASS" = true ]; then
+                error "Device has no internet connectivity - cannot download qtoolsign
+
+To connect to WiFi, run:
+  sshpass -p '$SSH_PASSWORD' ssh $SSH_HOST 'nmcli device wifi connect NETWORK password PASSWORD'
+
+Replace NETWORK with your WiFi SSID and PASSWORD with your WiFi password.
+"
+            else
+                error "Device has no internet connectivity - cannot download qtoolsign
+
+To connect to WiFi, run:
+  ssh $SSH_HOST 'nmcli device wifi connect NETWORK password PASSWORD'
+
+Replace NETWORK with your WiFi SSID and PASSWORD with your WiFi password.
+"
+            fi
         fi
     fi
 
@@ -586,8 +696,8 @@ cmd_install() {
     verify_tachyon_device
     check_prerequisites
 
-    # Push u-boot-dtb.bin to device if using ADB
-    if [ "$INSTALL_MODE" = "adb" ]; then
+    # Push u-boot-dtb.bin to device if using ADB or SSH
+    if [ "$INSTALL_MODE" = "adb" ] || [ "$INSTALL_MODE" = "ssh" ]; then
         info "Pushing u-boot-dtb.bin to device..."
         push_to_device "$UBOOT_BIN" "/tmp/u-boot-dtb.bin"
         UBOOT_BIN_DEVICE="/tmp/u-boot-dtb.bin"
@@ -611,13 +721,21 @@ cmd_install() {
         if mount | grep -q "$XBL_B_REAL"; then
             error "xbl_b partition ($XBL_B_REAL) is mounted. Run '$0 --device unmount' first."
         fi
-    else
+    elif [ "$INSTALL_MODE" = "adb" ]; then
         if run_on_device mount | grep -q "$XBL_A_REAL"; then
             error "xbl_a partition ($XBL_A_REAL) is mounted. Run '$0 --adb unmount' first."
         fi
 
         if run_on_device mount | grep -q "$XBL_B_REAL"; then
             error "xbl_b partition ($XBL_B_REAL) is mounted. Run '$0 --adb unmount' first."
+        fi
+    elif [ "$INSTALL_MODE" = "ssh" ]; then
+        if run_on_device mount | grep -q "$XBL_A_REAL"; then
+            error "xbl_a partition ($XBL_A_REAL) is mounted. Run '$0 --ssh unmount' first."
+        fi
+
+        if run_on_device mount | grep -q "$XBL_B_REAL"; then
+            error "xbl_b partition ($XBL_B_REAL) is mounted. Run '$0 --ssh unmount' first."
         fi
     fi
 
