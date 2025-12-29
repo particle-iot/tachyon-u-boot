@@ -239,7 +239,7 @@
 					reg = <0>;
 
 					pmic_glink_hs_in: endpoint {
-						remote-endpoint = <&usb_1_dwc3_hs>;
+						remote-endpoint = <&eud_con>;
 					};
 				};
 
@@ -1348,8 +1348,22 @@
 	};
 };
 
-&usb_1_dwc3_hs {
+&eud {
+	usb-role-switch;
+	qcom,manage-on-role-changes;
+	status = "okay";
+};
+
+&eud_con {
 	remote-endpoint = <&pmic_glink_hs_in>;
+};
+
+&eud_ep {
+	remote-endpoint = <&usb_1_dwc3_hs>;
+};
+
+&usb_1_dwc3_hs {
+	remote-endpoint = <&eud_ep>;
 };
 
 // &usb_1_dwc3_ss {
@@ -1446,7 +1460,8 @@
 
 		port@1 {
 			usb2_role_switch: endpoint {
-				remote-endpoint = <&eud_ep>;
+				// remote-endpoint = <&eud_ep>;
+				// XXX: this is weird now that EUD is connected to usb_1
 			};
 		};
 	};
