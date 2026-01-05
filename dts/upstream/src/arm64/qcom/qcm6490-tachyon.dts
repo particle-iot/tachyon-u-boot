@@ -54,6 +54,24 @@
 		regulator-boot-on;
 	};
 
+	cam_vdig_1p8: regulator-cam-vdig-1p8 {
+		compatible = "regulator-fixed";
+		regulator-name = "cam_vdig_1p8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	cam_vddl_1p2: regulator-cam-vddl-1p2 {
+		compatible = "regulator-fixed";
+		regulator-name = "cam_vddl_1p2";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
 	cam_vddl_1p8: regulator-cam-vddl-1p8 {
 		compatible = "regulator-fixed";
 		regulator-name = "cam_vddl_1p8";

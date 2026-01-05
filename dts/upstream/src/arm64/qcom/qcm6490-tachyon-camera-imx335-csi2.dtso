@@ -94,8 +94,8 @@
 		assigned-clock-rates = <24000000>;
 
 		avdd-supply = <&cam_vana_2p8>;
-		ovdd-supply = <&cam_vddl_1p8>;
-		dvdd-supply = <&vreg_l6b_1p2>;
+		ovdd-supply = <&cam_vdig_1p8>;
+		dvdd-supply = <&cam_vddl_1p2>;
 
 		status = "okay";
 
