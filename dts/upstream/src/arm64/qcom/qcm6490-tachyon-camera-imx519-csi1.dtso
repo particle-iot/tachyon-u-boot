@@ -83,8 +83,8 @@
 		assigned-clock-rates = <24000000>;
 
 		VANA-supply = <&cam_vana_2p8>;
-		VDIG-supply = <&cam_vdig_1p05>;
-		VDDL-supply = <&cam_vddl_1p8>;
+		VDIG-supply = <&cam_vdig_1p8>;
+		VDDL-supply = <&cam_vddl_1p2>;
 
 		status = "okay";
 
