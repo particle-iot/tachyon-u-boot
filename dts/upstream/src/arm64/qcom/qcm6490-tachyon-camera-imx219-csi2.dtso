@@ -93,9 +93,9 @@
 		assigned-clocks = <&camcc CAM_CC_MCLK1_CLK>;
 		assigned-clock-rates = <24000000>;
 
-		avdd-supply = <&cam_vana_2p8>;
-		ovdd-supply = <&cam_vddl_1p8>;
-		dvdd-supply = <&vreg_l6b_1p2>;
+		VANA-supply = <&cam_vana_2p8>;
+		VDIG-supply = <&cam_vdig_1p8>;
+		VDDL-supply = <&cam_vddl_1p2>;
 
 		status = "okay";
 
