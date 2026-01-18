@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Tachyon-specific addons for TEE/smcinvoke and thermal support
+ * Based on qcm6490-addons.dtsi but adapted for Tachyon memory layout
+ *
+ * Copyright (c) 2025 Particle Industries, Inc. All rights reserved.
+ */
+
+/ {
+	reserved-memory {
+		qseecom_mem: qcom,qseecom {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1400000>; /* 20M */
+		};
+
+		qseecom_ta_mem: qcom,qseecom-ta {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x1000000>; /* 16M */
+		};
+
+		cdsp_secure_heap: secure-cdsp-region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x2000000>; /* 32M */
+		};
+	};
+
+	firmware {
+		qtee_shmbridge {
+			compatible = "qcom,tee-shared-memory-bridge";
+		};
+
+		qcom_smcinvoke {
+			compatible = "qcom,smcinvoke";
+		};
+	};
+};
+
+/* CPU thermal-idle cooling devices */
+&CPU0 {
+	CPU0_idle: thermal-idle {
+		#cooling-cells = <2>;
+		duration-us = <2000000>;
+		exit-latency-us = <10000>;
+	};
+};
+
+&CPU1 {
+	CPU1_idle: thermal-idle {
+		#cooling-cells = <2>;
+		duration-us = <2000000>;
+		exit-latency-us = <10000>;
+	};
+};
+
+&CPU2 {
+	CPU2_idle: thermal-idle {
+		#cooling-cells = <2>;
+		duration-us = <2000000>;
+		exit-latency-us = <10000>;
+	};
+};
+
+&CPU3 {
+	CPU3_idle: thermal-idle {
+		#cooling-cells = <2>;
+		duration-us = <2000000>;
+		exit-latency-us = <10000>;
+	};
+};
+
+&CPU4 {
+	CPU4_idle: thermal-idle {
+		#cooling-cells = <2>;
+		duration-us = <2000000>;
+		exit-latency-us = <10000>;
+	};
+};
+
+&CPU5 {
+	CPU5_idle: thermal-idle {
+		#cooling-cells = <2>;
+		duration-us = <2000000>;
+		exit-latency-us = <10000>;
+	};
+};
+
+&CPU6 {
+	CPU6_idle: thermal-idle {
+		#cooling-cells = <2>;
+		duration-us = <2000000>;
+		exit-latency-us = <10000>;
+	};
+};
+
+&CPU7 {
+	CPU7_idle: thermal-idle {
+		#cooling-cells = <2>;
+		duration-us = <2000000>;
+		exit-latency-us = <10000>;
+	};
+};
