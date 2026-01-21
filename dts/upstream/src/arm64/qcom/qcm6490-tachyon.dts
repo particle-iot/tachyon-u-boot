@@ -308,10 +308,7 @@
 			no-map;
 		};
 
-		video@8ad00000 {
-			reg = <0x00 0x8ad00000 0x00 0x500000>;
-			no-map;
-		};
+		/* Removed - video_mem override below uses this address range */
 
 		removed_region@c0000000 {
 			reg = <0x00 0xc0000000 0x00 0x5100000>;
@@ -337,6 +334,13 @@
 
 &reserved_xbl_uefi_log {
 	reg = <0x00 0x80880000 0x00 0x14000>;
+};
+
+/* Place video_mem at 0x8ad00000 (after cdsp ends) with 7MB.
+ * Gap between cdsp@0x8ad00000 and ipa-fw@0x8b700000 = 10MB available.
+ */
+&video_mem {
+	reg = <0x0 0x8ad00000 0x0 0x700000>;
 };
 
 // Disable WCN6750 wifi, we have a different one, added below
@@ -1489,6 +1493,10 @@
 
 &gpu_zap_shader {
 	firmware-name = "a660_zap.mdt";
+	status = "okay";
+};
+
+&venus {
 	status = "okay";
 };
 
