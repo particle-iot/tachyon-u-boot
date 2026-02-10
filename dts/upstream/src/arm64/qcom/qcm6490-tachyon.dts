@@ -15,6 +15,8 @@
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+#include <dt-bindings/sound/qcom,q6asm.h>
+#include <dt-bindings/sound/qcom,q6dsp-lpass-ports.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include "sc7280.dtsi"
 #include "pm7250b.dtsi"
@@ -1480,12 +1482,10 @@
 	status = "okay";
 };
 
-
-// ?
-&lpasscc {
-	status = "okay";
+&lpass_audiocc {
+	compatible = "qcom,qcm6490-lpassaudiocc";
+	/delete-property/ power-domains;
 };
-
 
 &gpu {
 	status = "okay";
@@ -1611,5 +1611,52 @@
 				remote-endpoint = <&pmic_glink_sbu>;
 			};
 		};
+	};
+};
+
+&soc {
+	sound: sound {
+		compatible = "qcom,sm8250-sndcard";
+		model = "Particle Tachyon Audio";
+
+		mm1-dai-link {
+			link-name = "MultiMedia1";
+
+			cpu {
+				sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>;
+			};
+		};
+
+		displayport-rx-dai-link {
+			link-name = "DisplayPort Playback";
+
+			codec {
+				sound-dai = <&mdss_dp>;
+			};
+
+			cpu {
+				sound-dai = <&q6afedai DISPLAY_PORT_RX>;
+			};
+
+			platform {
+				sound-dai = <&q6routing>;
+			};
+		};
+
+		// usb-dai-link {
+		// 	link-name = "USB Playback";
+
+		// 	codec {
+		// 		sound-dai = <&q6usbdai 136>;
+		// 	};
+
+		// 	cpu {
+		// 		sound-dai = <&q6afedai 136>;
+		// 	};
+
+		// 	platform {
+		// 		sound-dai = <&q6routing>;
+		// 	};
+		// };
 	};
 };
