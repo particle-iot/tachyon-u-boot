@@ -792,6 +792,44 @@
 	status = "okay";
 };
 
+/*
+ * MPSS GLINK packet ports: expose modem AT / data channels as /dev/smd*
+ * character devices via the out-of-tree glink_pkt driver (drivers/soc/qcom).
+ *
+ * Background: mainline rpmsg_wwan_ctrl exposes the same DATA1/DATA4 channels
+ * as /dev/wwan0at*, but the mainline qcom_glink_native destroy_ept path
+ * deadlocks with wwan_core ops_lock on close (see yyt-notes/
+ * bugfix-modem-at_cmd_no_smd_dev.md Test-03/04). Until that is fixed
+ * upstream, we use glink_pkt which holds the rpmsg endpoint for the lifetime
+ * of the channel and never destroys it on close, sidestepping the deadlock.
+ *
+ * Userspace must blacklist rpmsg_wwan_ctrl so it does not race for the same
+ * channels (handled in rootfs config, not in this dts).
+ */
+/ {
+    qcom,glinkpkt {
+        compatible = "qcom,glinkpkt";
+
+        qcom,glinkpkt-data1 {
+            qcom,glinkpkt-edge    = "mpss";
+            qcom,glinkpkt-ch-name = "DATA1";
+            qcom,glinkpkt-dev-name = "smd7";
+        };
+
+        qcom,glinkpkt-data4 {
+            qcom,glinkpkt-edge    = "mpss";
+            qcom,glinkpkt-ch-name = "DATA4";
+            qcom,glinkpkt-dev-name = "smd8";
+        };
+
+        qcom,glinkpkt-data11 {
+            qcom,glinkpkt-edge    = "mpss";
+            qcom,glinkpkt-ch-name = "DATA11";
+            qcom,glinkpkt-dev-name = "smd11";
+        };
+    };
+};
+
 // Doesn't look like we have this
 &remoteproc_wpss {
 	status = "disabled";
